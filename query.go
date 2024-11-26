@@ -1,0 +1,231 @@
+/**
+ * 功能：处理http请求，响应
+ */
+package main
+
+import (
+	"bytes"
+	"crypto/tls"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io/ioutil"
+	"log"
+	"math"
+	"net/http"
+	"strconv"
+	"strings"
+	"time"
+
+	"github.com/sirupsen/logrus"
+)
+
+type queryDrone map[string]Any
+
+type queryData map[string][]queryDrone
+
+type queryResult map[string]queryData
+
+var (
+	queryIp       string
+	queryParam    = "{query: { drone\n {\n id \n name\n seen_sensor\n {\n detected_freq_khz\n }\n }\n}}"
+	postParam     = bytes.NewBuffer([]byte(queryParam))
+	queryExcellen int
+)
+
+func queryTask() {
+	fmt.Println("----进入方法: 开启查询任务, queryTask()")
+	<-sendIsStart
+	if len(queryIp) == 0 {
+		queryIp = "http://" + devIp + ":3200/graphql"
+	}
+
+	ticker := time.NewTicker(time.Duration(queryDroneInterval) * time.Second)
+	defer ticker.Stop()
+	var res *http.Response
+	var err error
+	for {
+		select {
+		case <-sendIsEnd:
+			fmt.Println("停止查询, sendIsEnd")
+			return
+		case <-userEndQuery:
+			fmt.Println("停止查询, userEndQuery")
+			return
+		case <-ticker.C:
+			for j := 0; ; j++ {
+				q := strings.NewReader(`{"query":"{drone\n {\n id \n name \n seen_sensor\n {\n detected_freq_khz\n }\n }\n}"}`)
+				res, err = http.Post(queryIp, "application/json;charset=utf-8", q)
+				if err != nil {
+					if j > 2 {
+						fmt.Println("graph连接失败，本次运行结束")
+						logrus.Error("graph连接失败，本次运行结束")
+						errorPanic(err)
+					}
+					fmt.Printf("graph连接失败，重试第%d次\n", j+1)
+					// addlog(err)
+					time.Sleep(time.Second)
+				} else if res.StatusCode != 200 {
+					if j > 2 {
+						fmt.Println("graph连接失败，本次运行结束")
+						logrus.Error("graph连接失败，本次运行结束")
+						errorPanic(errors.New(res.Status))
+					}
+					fmt.Printf("graph连接失败，重试第%d次\n", j+1)
+					// addlog(errors.New(res.Status))
+					time.Sleep(time.Second)
+				} else {
+					break
+				}
+			}
+
+			respBytes, err := ioutil.ReadAll(res.Body)
+			if err != nil {
+				logrus.Error("queryTask, 进行到这, 报错了。。")
+				errorPanic(err)
+			}
+			res.Body.Close()
+			result := new(queryResult)
+			json.Unmarshal(respBytes, result)
+			logrus.Debug("查到的 result = ", result)
+			list := (*result)["data"]["drone"]
+			logrus.Debug("查到的drone list = ", list)
+			droneList := []Drone{}
+			// 制作查询飞机列表
+			for _, v := range list {
+				id := v["id"].(string)
+				s := v["name"].(string)
+				d := Drone{Id: id, Name: s, FreqList: 0}
+				f := v["seen_sensor"].([]interface{})
+				// logrus.Debug("查到的 s = ", s)
+				// logrus.Debug("查到的 d = ", d)
+				// logrus.Debug("查到的 f = ", f)
+				for _, w := range f {
+					w1 := w.(map[string]interface{})
+					w2 := w1["detected_freq_khz"]
+					freq := w2.(float64)
+					d.FreqList = int(freq)
+				}
+				droneList = append(droneList, d)
+			}
+
+			t := time.Now()
+			ts := fmt.Sprintf("%d.%02d.%02d %02d:%02d:%02d", t.Year(), t.Month(), t.Day(), t.Hour(), t.Minute(), t.Second())
+			fmt.Println(ts, "查询", droneList)
+			// writeQueryExcel(ts, droneList, t) // 最早的参数-3个,// 表头: 时间, 飞机, 时间戳, 要查询的飞机id, 查询结果-有没有(true/ false)
+			logrus.Debug("查询任务中,目标飞机preQueryDrone= ", currentQueryTargetDrone)                               // [{3DR Solo [2462000] 8adc9635291e}] 原来写法: preQueryDrone := Drone{id: currentSigPkgDroneId, name: "3DR Solo", freqList: []int{2462000}}
+			queryResultHasMistake := checkAlgorithmWhereFreqHasMistake(droneList, currentQueryTargetDrone)   // 判断是否查询到 ,true / false, 后面再写逻辑,判断true/false
+			queryResultNoMistake := checkAlgorithmWhereFreqNoMistake(droneList, currentQueryTargetDrone)     // 判断是否查询到 ,true / false, 后面再写逻辑,判断true/false
+			writeQueryExcel(currentQueryTargetDrone, droneList, queryResultHasMistake, queryResultNoMistake) // 最早的参数-3个,// 表头: 时间, 飞机, 时间戳, 要查询的飞机id, 查询结果-有没有(true/ false)
+		}
+	}
+}
+
+// 发送请求，参数graphql
+// 参数 url 请求链接 string
+// 参数 method 请求方式 string
+// 参数 graphqlJsonStr 转成json的接口 string
+func SendRequestByGraphql(url string, method string, graphqlStr string) string {
+	// url := "https://192.168.84.248/rf/graphql"
+	// url := "https://192.168.85.93/rf/graphql"
+	// method := "POST"
+	fmt.Println("SendRequestByGraphql, graphqlStr = ", graphqlStr)
+	payload := strings.NewReader(graphqlStr)
+
+	// 禁用 TLS 证书验证
+	transport := &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	}
+	client := &http.Client{Transport: transport}
+
+	// client := &http.Client{}  // 原始写法
+	req, err := http.NewRequest(method, url, payload)
+
+	if err != nil {
+		log.Println("请求失败，错误=", err)
+		return ""
+	}
+	req.Header.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36")
+	req.Header.Add("Content-Type", "application/graphql")
+	// 为什么必须加上 Bearer? 84.248用的
+	// req.Header.Add("Authorization", "Bearer "+config.Token)  // ------ 这段代码，copy过来不适配，待修改
+	req.Header.Add("Authorization", "Bearer "+"config.Token") // 临时随便写了一个token
+	// 85.93 用的
+	// req.Header.Add("Authorization", "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6Ijg4MjhjYTdlLTkyMWQtMTFlYi05NDhkLTlmMjQ2NjMyMzk2OCIsImlhdCI6MTcyMTM1ODkzMiwiZXhwIjoxNzUyODk0OTMyfQ.hlKKSQRHT2XeGsfCzc-UdxeWW3StnQ14oEYW-QC0VJ0")
+
+	res, err := client.Do(req)
+	if err != nil {
+		log.Println("响应失败，错误=", err)
+		return ""
+	}
+	defer res.Body.Close()
+
+	body, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		log.Println("读取响应失败，错误=", err)
+		return ""
+	}
+	log.Println("响应内容= ", string(body))
+	return string(body)
+}
+
+// 检测算法-频率可以有误差 (频率误差<=10 Mhz)
+// 参数:已查到的飞机列表, 目标飞机
+// 频率单位 Hz 2462000 - 2452000 = 10000
+func checkAlgorithmWhereFreqHasMistake(queriedDrones []Drone, targetDrone Drone) bool {
+	for _, queriedDrone := range queriedDrones {
+		// 判断查询到的飞机列表,id是否相等
+		if queriedDrone.Id == targetDrone.Id {
+			// 判断频率,误差是否 <=10 Mhz
+			freqMistake := math.Abs(float64(queriedDrone.FreqList) - float64(targetDrone.FreqList))
+			if freqMistake <= 10000 {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// 检测算法-频率可以有误差 (频率误差<=10 Mhz)
+// 参数:已查到的飞机列表, 目标飞机
+// 频率单位 Hz 2462000 - 2452000 = 10000
+func checkAlgorithmWhereFreqNoMistake(queriedDrones []Drone, targetDrone Drone) bool {
+	for _, queriedDrone := range queriedDrones {
+		// 判断查询到的飞机列表,id是否相等
+		if queriedDrone.Id == targetDrone.Id {
+			// 判断频率,误差是否 <=0 Mhz
+			if queriedDrone.FreqList == targetDrone.FreqList {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// func writeQueryExcel(ts string, res []Drone, t time.Time) {
+// 之前的参数-6个,// 表头: 时间, 飞机, 时间戳, 要查询的飞机id, 查询结果(带误差)-有没有(true/ false), 查询结果(无误差)-有没有(true/ false)
+// 现在的参数-?个,// 表头: 要查询的飞机id, 查询到的飞机, 查询结果(带误差)-有没有(true/ false), 查询结果(无误差)-有没有(true/ false)
+func writeQueryExcel(preQueryDrone Drone, res []Drone, queryResultHasMistake bool, queryResultNoMistake bool) {
+	logrus.Debug("写入查询excel, 写入内容 == ", preQueryDrone, res, queryResultHasMistake, queryResultNoMistake)
+	// 打开文件,不存在就创建
+	queryHistroyFile, err = createOrOpenExcelFile(queryHistroyFilePath)
+	// index, _ := e.NewSheet("发送记录")
+	// 切为活动窗口
+	// e.SetActiveSheet(index)
+	queryHistroyFile.SetColWidth("sheet1", "A", "E", 30)
+
+	// 写入表头
+	// 表头: 时间, 飞机, 时间戳, 要查询的飞机id, 查询结果-有没有(true/ false)
+	err = queryHistroyFile.SetSheetRow("sheet1", "A1", &[]Any{"要查询的飞机id", "查询到的飞机", "查询结果(有id并且频率误差<50)-有没有(true/false)", "查询结果(有id并且频率相等)-有没有(true/false)"})
+
+	// 写入行内容
+	queryExcellen++
+	// err = queryHistroyFile.SetSheetRow("Sheet1", "A"+strconv.Itoa(queryExcellen), &[]Any{ts, res, t.Unix()})  // 最早写法
+	tableRow := &[]Any{preQueryDrone, res, queryResultHasMistake, queryResultNoMistake}
+	logrus.Infof("写入查询记录表, 当前drone=%v, tableRow= %v", preQueryDrone, tableRow)
+	err = queryHistroyFile.SetSheetRow("Sheet1", "A"+strconv.Itoa(queryExcellen+1), tableRow)
+	errorPanic(err)
+	logrus.Debug("写入查询文件, filePath= ", queryHistroyFilePath)
+	err = queryHistroyFile.SaveAs(queryHistroyFilePath)
+	errorPanic(err)
+}
