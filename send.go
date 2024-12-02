@@ -33,7 +33,7 @@ func sendInit() {
 			// addlog(err)
 			time.Sleep(time.Duration(i) * time.Second)
 		} else {
-			sendIsStart <- any
+			sendIsStart <- any // 发送信号：发送程序开始
 			fmt.Println("tcp拨号成功")
 			return
 		}
@@ -47,28 +47,60 @@ func sendTask() {
 
 	// 获取信号列表， from 待发送列表excel
 	sigpkgList = getSigpkgListFromPreSendHistoryFile(preSendHistoryFilePath, "待发送列表")
-	logrus.Debug("func=sendTask(), sigpkgList= ", sigpkgList)
+	logrus.Info("func=sendTask(), sigpkgList= ", sigpkgList)
 	droneObjList = getQueryDroneFromPreSendHistoryFile(preSendHistoryFilePath, "待发送列表")
 	logrus.Debug("func=sendTask(), droneObjList= ", droneObjList)
+	sigFolderPathList = getSigFolderPathFromPreSendHistoryFile(preSendHistoryFilePath, "待发送列表")
+	logrus.Debug("func=sendTask(), sigFolderPathList= ", sigFolderPathList)
 
 	sendInit()
+	changeFolderFlag := false // 换文件夹标志
 	for i, sigpkg := range sigpkgList {
 		// 设置当前飞机，我自己加的代码
 		if i == 0 {
 			currentQueryTargetDrone = droneObjList[i] // 当前飞机，用于查询列表excel用
+			currentSigDirPath = sigFolderPathList[i]  // 当前信号文件夹路径
+		}
+
+		// v0.0.0.1 新增，为优化查询效率。一旦检测到成功的，剩下的信号就不发了。就直接切换信号包
+		/*
+			这段写法有问题，还没研究
+			if <-userChangeQuerySigFolder {
+				continue
+			}
+		*/
+		/*
+			这段代码写在这，会阻塞，暂时没办法解决
+			if !changeFolderFlag {
+			select {
+			case <-userChangeQuerySigFolder:
+				logrus.Info("收到信号：切换信号文件夹标志, 修改flag")
+				if i+1 < len(droneObjList) && sigFolderPathList[i] == sigFolderPathList[i+1] { // 不加这个，数组越界
+					changeFolderFlag = true
+				}
+			}
+			}
+		*/
+		if sigpkg != "[换文件夹]" && changeFolderFlag {
+			logrus.Infof("index=%v, 切换信号文件夹标志=true, 跳过当前循环, sig=", i, sigpkg)
+			continue
 		}
 
 		// copy过来的代码
-		fmt.Printf("发送信号，index = %v, tasklist= %v \n", i, sigpkg)
+		fmt.Printf("发送信号, index = %v, tasklist= %v \n", i, sigpkg)
+		logrus.Infof("发送信号, index = %v, tasklist= %v \n", i, sigpkg)
 		if sigpkg == "[换文件夹]" {
 			// writeSendExcel(i, "[换文件夹]", time.Now()) //
 			if i+1 < len(droneObjList) { // 不加这个，数组越界
 				currentQueryTargetDrone = droneObjList[i+1] // 当前飞机，用于查询列表excel用
+				currentSigDirPath = sigFolderPathList[i+1]  // 当前信号文件夹路径
+				changeFolderFlag = false                    // 标志重置
 			}
 			fmt.Println("[换文件夹]，等待", cdFolderInterval, "秒后发送")
+			logrus.Info("[换文件夹]，等待", cdFolderInterval, "秒后发送")
 			select {
 			case <-time.After(time.Duration(cdFolderInterval) * time.Second):
-			case <-userEndSend:
+			case <-userEndSend: // 匹配到信号，用户终止发送
 				connTCP.Close()
 				fmt.Println("关闭tcp")
 				userEndQuery <- any
@@ -93,14 +125,20 @@ func sendTask() {
 			case <-userEndSend:
 				connTCP.Close()
 				fmt.Println("关闭tcp")
-				userEndQuery <- any
+				userEndQuery <- any // 发送信号：用户停止查询
 				return
+			case <-userChangeQuerySigFolder:
+				logrus.Info("收到信号：切换信号文件夹标志, 修改flag")
+				if i+1 < len(droneObjList) && sigFolderPathList[i] == sigFolderPathList[i+1] { // 不加这个，数组越界
+					changeFolderFlag = true
+				}
 			}
 		}
 	}
 	connTCP.Close()
 	fmt.Println("发送完毕")
-	sendIsEnd <- any
+	sendIsEnd <- any // 发送信号：发送程序结束
+	logrus.Info("发送完毕，发送信号, SendIsEnd")
 }
 
 func send(url string) (int, error) {
@@ -228,4 +266,38 @@ func getQueryDroneFromPreSendHistoryFile(path string, sheetName string) []Drone 
 		index++
 	}
 	return droneList
+}
+
+/*
+功能：从excel获取信号文件夹列表（信号列表前2列）
+参数：
+1. path 文件路径, 建议绝对路径
+2. sheetName 表名
+
+返回值：
+1. sigFolderPathList []string
+*/
+func getSigFolderPathFromPreSendHistoryFile(path string, sheetName string) []string {
+	folderList := make([]string, 0) // 重置信号文件夹列表为空
+	file, err := createOrOpenExcelFile(path)
+	logrus.Debugf("func=getSigFolderPathFromPreSendHistoryFile(), path===== %v, sheetName=%v", path, sheetName)
+	if err != nil {
+		logrus.Error("func=getSigFolderPathFromPreSendHistoryFile(), 文件不存在, Error reading directory= ", err)
+		return folderList
+	}
+
+	// 获取工作表 信号 B列
+	rows, err := file.Rows(sheetName)
+	errorPanic(err)
+
+	index := 2
+	for rows.Next() {
+		value, err := preSendHistoryFile.GetCellValue(preSendHistoryFileSheetName, "B"+strconv.Itoa(index))
+		errorPanic(err)
+		if value != "" { // 不判断发送最后一条空数据时，报错
+			folderList = append(folderList, value)
+		}
+		index++
+	}
+	return folderList
 }

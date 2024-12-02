@@ -43,6 +43,31 @@ func createOrOpenExcelFile(filePath string) (*excelize.File, error) {
 }
 
 /*
+功能：创建或者打开txt文件
+参数：
+1. filePath 文件路径
+
+返回值：
+1. excelize 对象
+
+思路：
+1. 检测文件是否存在，不存在就创建文件
+2. 文件存在，就打开
+*/
+func createOrOpenTxtFile(filePath string) (*os.File, error) {
+	// 1. 检测文件是否存在，不存在就创建文件  2. 文件存在，就打开
+	// 打开文件或创建新文件
+	file, err := os.Create("output.txt")
+	if err != nil {
+		logrus.Error("文件创建或打开失败,err= ", err)
+		return nil, err
+	}
+	defer file.Close()
+
+	return file, err
+}
+
+/*
 功能：time 转成 string类型, 为了文件命名 20240109-103022 (年月日-时分秒)
 参数：
 1. time (time.Time) 时间类型

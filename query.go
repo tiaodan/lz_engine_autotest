@@ -44,15 +44,27 @@ func queryTask() {
 	defer ticker.Stop()
 	var res *http.Response
 	var err error
+	// timeout := time.After(time.Duration(queryDroneInterval+5) * time.Second) // 设置超时时间为 queryDroneInterval + 5 秒 - no use
+	// var timeoutNum float64
 	for {
+		logrus.Debug("queryTask(), 查询任务, for循环")
+		// fmt.Println("-------------------------------------------------queryTask(), 查询任务, for循环--阻塞")
 		select {
 		case <-sendIsEnd:
-			fmt.Println("停止查询, sendIsEnd")
+			fmt.Println("-------------------------------------------------停止查询, sendIsEnd")
+			logrus.Info("停止查询, sendIsEnd")
 			return
 		case <-userEndQuery:
-			fmt.Println("停止查询, userEndQuery")
+			fmt.Println("-------------------------------------------------停止查询, userEndQuery")
+			logrus.Info("停止查询, userEndQuery")
 			return
-		case <-ticker.C:
+		// case <-time.After(time.Duration(queryDroneInterval+5) * time.Second):
+		// 	logrus.Error("超时, 停止查询")
+		// 	return
+		case <-ticker.C: // 这里代码有问题，如果和 case <-sendIsEnd: case <-userEndQuery: 并列写，有可能ticker.C 阻塞那几秒内，收到了终止信息，又无法进入那个case进行处理
+			// fmt.Println("-------------------------------------------------继续查询, ticker.C")
+			logrus.Info("-------------------------------------------------继续查询, ticker.C")
+			// 重连5次
 			for j := 0; ; j++ {
 				q := strings.NewReader(`{"query":"{drone\n {\n id \n name \n seen_sensor\n {\n detected_freq_khz\n }\n }\n}"}`)
 				res, err = http.Post(queryIp, "application/json;charset=utf-8", q)
@@ -112,11 +124,31 @@ func queryTask() {
 			t := time.Now()
 			ts := fmt.Sprintf("%d.%02d.%02d %02d:%02d:%02d", t.Year(), t.Month(), t.Day(), t.Hour(), t.Minute(), t.Second())
 			fmt.Println(ts, "查询", droneList)
-			// writeQueryExcel(ts, droneList, t) // 最早的参数-3个,// 表头: 时间, 飞机, 时间戳, 要查询的飞机id, 查询结果-有没有(true/ false)
-			logrus.Debug("查询任务中,目标飞机preQueryDrone= ", currentQueryTargetDrone)                               // [{3DR Solo [2462000] 8adc9635291e}] 原来写法: preQueryDrone := Drone{id: currentSigPkgDroneId, name: "3DR Solo", freqList: []int{2462000}}
-			queryResultHasMistake := checkAlgorithmWhereFreqHasMistake(droneList, currentQueryTargetDrone)   // 判断是否查询到 ,true / false, 后面再写逻辑,判断true/false
-			queryResultNoMistake := checkAlgorithmWhereFreqNoMistake(droneList, currentQueryTargetDrone)     // 判断是否查询到 ,true / false, 后面再写逻辑,判断true/false
-			writeQueryExcel(currentQueryTargetDrone, droneList, queryResultHasMistake, queryResultNoMistake) // 最早的参数-3个,// 表头: 时间, 飞机, 时间戳, 要查询的飞机id, 查询结果-有没有(true/ false)
+			logrus.Debug("查询任务中,目标飞机preQueryDrone= ", currentQueryTargetDrone)                                                  // [{3DR Solo [2462000] 8adc9635291e}] 原来写法: preQueryDrone := Drone{id: currentSigPkgDroneId, name: "3DR Solo", freqList: []int{2462000}}
+			queryResultHasMistake := checkAlgorithmWhereFreqHasMistake(droneList, currentQueryTargetDrone)                      // 判断是否查询到 ,true / false, 后面再写逻辑,判断true/false
+			queryResultNoMistake := checkAlgorithmWhereFreqNoMistake(droneList, currentQueryTargetDrone)                        // 判断是否查询到 ,true / false, 后面再写逻辑,判断true/false
+			writeQueryExcel(currentQueryTargetDrone, droneList, queryResultHasMistake, queryResultNoMistake, currentSigDirPath) // 最早的参数-3个,// 表头: 时间, 飞机, 时间戳, 要查询的飞机id, 查询结果-有没有(true/ false)
+			// v0.0.0.1 为了提高效率新增，一旦判断 queryResultNoMistake==true 或者queryResultNoMistake==false && queryResultHasMistake== true了，就不继续查了。发送个信号
+			if queryResultNoMistake {
+				logrus.Info("查询到正确数据, queryResultNoMistake==true, 发送信号: 切换文件夹")
+				// userEndQuery <- any // 发送信号：用户停止当此查询 - 发这个信号不对，只能查1个
+				// userEndSend <- any // 发送信号：用户停止当此查询 - 发这个信号也不对，只能查1个
+				userChangeQuerySigFolder <- any // 发送信号：换信号文件夹
+			} else if queryResultHasMistake {
+				logrus.Info("查询到正确数据, queryResultNoMistake==false && queryResultHasMistake== true, 发送信号: 切换文件夹")
+				// userEndQuery <- any // 发送信号：用户停止当此查询 - 发这个信号不对，只能查1个
+				// userEndSend <- any // 发送信号：用户停止当此查询 - 发这个信号也不对，只能查1个
+				userChangeQuerySigFolder <- any // 发送信号：换信号文件夹
+			}
+			// default:
+			// 	fmt.Println("-------------------------------------------------判断超时, 查询,for 默认分支")
+			// 	logrus.Error("查询,for 默认分支，timeoutNum = ", timeoutNum)
+			// 	timeoutNum += 0.5
+			// 	time.Sleep(time.Millisecond * 500) // 暂停 0.5 秒
+			// 	if timeoutNum >= float64(queryDroneInterval+5) {
+			// 		logrus.Error("超时, 停止查询")
+			// 		return
+			// 	}
 		}
 	}
 }
@@ -204,8 +236,8 @@ func checkAlgorithmWhereFreqNoMistake(queriedDrones []Drone, targetDrone Drone) 
 
 // func writeQueryExcel(ts string, res []Drone, t time.Time) {
 // 之前的参数-6个,// 表头: 时间, 飞机, 时间戳, 要查询的飞机id, 查询结果(带误差)-有没有(true/ false), 查询结果(无误差)-有没有(true/ false)
-// 现在的参数-?个,// 表头: 要查询的飞机id, 查询到的飞机, 查询结果(带误差)-有没有(true/ false), 查询结果(无误差)-有没有(true/ false)
-func writeQueryExcel(preQueryDrone Drone, res []Drone, queryResultHasMistake bool, queryResultNoMistake bool) {
+// 现在的参数-?个,// 表头: 要查询的飞机id, 查询到的飞机, 查询结果(带误差)-有没有(true/ false), 查询结果(无误差)-有没有(true/ false), 信号文件夹路径
+func writeQueryExcel(preQueryDrone Drone, res []Drone, queryResultHasMistake bool, queryResultNoMistake bool, sigFolderPath string) {
 	logrus.Debug("写入查询excel, 写入内容 == ", preQueryDrone, res, queryResultHasMistake, queryResultNoMistake)
 	// 打开文件,不存在就创建
 	queryHistroyFile, err = createOrOpenExcelFile(queryHistroyFilePath)
@@ -215,14 +247,14 @@ func writeQueryExcel(preQueryDrone Drone, res []Drone, queryResultHasMistake boo
 	queryHistroyFile.SetColWidth("sheet1", "A", "E", 30)
 
 	// 写入表头
-	// 表头: 时间, 飞机, 时间戳, 要查询的飞机id, 查询结果-有没有(true/ false)
-	err = queryHistroyFile.SetSheetRow("sheet1", "A1", &[]Any{"要查询的飞机id", "查询到的飞机", "查询结果(有id并且频率误差<50)-有没有(true/false)", "查询结果(有id并且频率相等)-有没有(true/false)"})
+	// 表头: 时间, 飞机, 时间戳, 要查询的飞机id, 查询结果-有没有(true/ false), 信号文件夹路径
+	err = queryHistroyFile.SetSheetRow("sheet1", "A1", &[]Any{"要查询的飞机id", "查询到的飞机", "查询结果(有id并且频率误差<50)-有没有(true/false)", "查询结果(有id并且频率相等)-有没有(true/false)", "信号文件夹路径"})
 
 	// 写入行内容
 	queryExcellen++
 	// err = queryHistroyFile.SetSheetRow("Sheet1", "A"+strconv.Itoa(queryExcellen), &[]Any{ts, res, t.Unix()})  // 最早写法
-	tableRow := &[]Any{preQueryDrone, res, queryResultHasMistake, queryResultNoMistake}
-	logrus.Infof("写入查询记录表, 当前drone=%v, tableRow= %v", preQueryDrone, tableRow)
+	tableRow := &[]Any{preQueryDrone, res, queryResultHasMistake, queryResultNoMistake, sigFolderPath}
+	logrus.Infof("写入查询记录表, 当前drone=%v, tableRow= %v", preQueryDrone, tableRow, sigFolderPath)
 	err = queryHistroyFile.SetSheetRow("Sheet1", "A"+strconv.Itoa(queryExcellen+1), tableRow)
 	errorPanic(err)
 	logrus.Debug("写入查询文件, filePath= ", queryHistroyFilePath)

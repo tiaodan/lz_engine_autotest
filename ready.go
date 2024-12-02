@@ -6,9 +6,12 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
+	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -22,6 +25,7 @@ import (
 var (
 	sigpkgList                = make([]string, 0, 1000) // 信号采集列表
 	droneObjList              = make([]Drone, 0, 1000)  // 目标飞机列表，与 sigpkgList信号采集列表 一一对应
+	sigFolderPathList         = make([]string, 0, 1000) // 信号文件夹列表，与 sigpkgList信号采集列表 一一对应
 	preSigDirPath             = ""                      // 之前信号包目录路径
 	nowSigDirPath             = ""                      // 现在信号包目录路径
 	currentSigDirPath         = ""                      // 当前信号包目录路径
@@ -51,13 +55,15 @@ func readConfig(configName string, configSuffix string, configRelPath string) {
 	sigPkgSendInterval = viper.GetInt("signal.sigPkgSendInterval") // 发送间隔时间:毫秒/MB,按信号包大小
 	cdFolderInterval = viper.GetInt("signal.cdFolderInterval")     // 换文件夹等待时间:秒
 	queryDroneInterval = viper.GetInt("signal.queryDroneInterval") // 查询无人机间隔时间:秒
+	logLevel = viper.GetString("log.logLevel")                     // 日志级别 只认：debug 、info 、 error，不区分大小写。写其它的都按debug处理
 
 	// 打印配置
-	logrus.Debug("配置 devIp (设备ip)= ", devIp)
-	logrus.Debug("配置 sigDir (信号包根目录)= ", sigDir)
-	logrus.Debug("配置 sigPkgSendInterval (发送间隔时间:毫秒/MB,按信号包大小)= ", sigPkgSendInterval)
-	logrus.Debug("配置 cdFolderInterval (换文件夹等待时间:秒)= ", cdFolderInterval)
-	logrus.Debug("配置 queryDroneInterval (查询无人机间隔时间:秒)= ", queryDroneInterval)
+	logrus.Info("配置 devIp (设备ip)= ", devIp)
+	logrus.Info("配置 sigDir (信号包根目录)= ", sigDir)
+	logrus.Info("配置 sigPkgSendInterval (发送间隔时间:毫秒/MB,按信号包大小)= ", sigPkgSendInterval)
+	logrus.Info("配置 cdFolderInterval (换文件夹等待时间:秒)= ", cdFolderInterval)
+	logrus.Info("配置 queryDroneInterval (查询无人机间隔时间:秒)= ", queryDroneInterval)
+	logrus.Info("配置 logLevel (日志级别)= ", logLevel)
 }
 
 /*
@@ -79,6 +85,24 @@ func setVar() {
 	queryHistroyFilePath = "查询列表" + startTimeStr + ".xlsx"
 	reportFilePath = "分析报告" + startTimeStr + ".xlsx"
 	preSendHistoryFileSheetName = "待发送列表"
+
+	preSendHistoryFileTxtPath = "待发送列表-" + startTimeStr + ".txt" // 预发送记录文件txt 路径
+	queryHistroyFileTxtPath = "查询列表" + startTimeStr + ".txt"     // 查询记录文件txt 路径
+	reportFileTxtPath = "分析报告" + startTimeStr + ".txt"           // 分析报告文件txt 路径
+
+	// 配置日志相关
+	// 配置日志等级
+	var logrusLevel logrus.Level
+	if strings.EqualFold(logLevel, "debug") {
+		logrusLevel = logrus.DebugLevel
+	} else if strings.EqualFold(logLevel, "info") {
+		logrusLevel = logrus.InfoLevel
+	} else if strings.EqualFold(logLevel, "error") {
+		logrusLevel = logrus.ErrorLevel
+	} else {
+		logrusLevel = logrus.DebugLevel
+	}
+	logrus.SetLevel(logrusLevel)
 
 	// 打印变量
 	logrus.Debug("全局变量 startTime (程序开始时间)= ", startTime)
@@ -128,7 +152,37 @@ func createPreSendHistoryFile(filePath string) {
 	// 6. 循环读取信号包所有文件，写入行内容
 	err = setPreSendHistoryFileSheetRow(sigDir)
 	errorPanic(err)
+}
 
+/*
+功能：创建 待发送信号列表文件-txt,方便用户查看，因为打开excel文件，程序会报错。
+命名格式：待发送信号列表-20240102-103020.xlsx (名字+年月日-时分秒)
+参数：
+1. filePath string 文件路径
+
+思路：
+1. 创建或者打开文件
+2. 创建sheet
+3. 设置活动窗口为 新建sheet
+4. 设置列宽
+5. 创建表头
+7. 保存文件
+6. 循环读取信号包所有文件，写入行内容
+*/
+func createPreSendHistoryFileTxt(filePath string) {
+	// 1. 创建或者打开文件
+	preSendHistoryTxtFile, err = createOrOpenTxtFile(filePath)
+	errorPanic(err)
+
+	// 5. 创建表头
+	preSendHistoryTxtFile.WriteString("厂家, 信号包路径, 要查询的无人机, 待发送信号列表\n")
+	// 7. 保存文件
+	// err = preSendHistoryFile.SaveAs(preSendHistoryFilePath)
+	// errorPanic(err)
+
+	// 6. 循环读取信号包所有文件，写入行内容
+	// err = setPreSendHistoryFileSheetRow(sigDir)
+	// errorPanic(err)
 }
 
 /*
@@ -282,11 +336,16 @@ func loopFile(path string) {
 			// 判断是否是最后一个文件
 			if currentSigCount == currentDirSigNum {
 				// 尝试在这里写入excel表，并重置 sigpkgList为空
+				// 给每个信号文件夹,所有信号 = sigpkgList 排序，排序后，再加上  [换文件夹]
+				sortStringArr(sigpkgList)
+				logrus.Info("排序后的 sigpkgList= ", sigpkgList)
+
 				logrus.Info("loopFile 到最后一个信号文件")
 				sigpkgList = append(sigpkgList, "[换文件夹]")
 				logrus.Infof("写入待发送信号列表, 厂家=%v, 信号包路径=%v, 要查询的无人机=%v, 待发送信号列表=%v", sigDir, currentSigDirPath, currentQueryTargetDrone, sigpkgList)
-				writeExcelTableRowByArgs(sigDir, currentSigDirPath, currentQueryTargetDrone, sigpkgList)
-				sigpkgList = make([]string, 0) // 重置信号列表为空
+				// writeExcelTableRowByArgs(sigDir, currentSigDirPath, currentQueryTargetDrone, sigpkgList)  // 原来的写法- sigpkgList
+				writeExcelTableRowByArgs(sigDir, currentSigDirPath, currentQueryTargetDrone, sigpkgList) // v0.0.0.1的写法- sigpkgList
+				sigpkgList = make([]string, 0)                                                           // 重置信号列表为空
 			}
 		} else {
 			logrus.Debug("------------- 某个信号目录已经遍历完了,已经切到另一个目录")
@@ -373,4 +432,51 @@ func writeExcelTableRowByArgs(sigDir string, currentSigDirPath string, currentQu
 	// 7. 保存文件
 	err = preSendHistoryFile.SaveAs(preSendHistoryFilePath)
 	errorPanic(err)
+}
+
+/*
+功能：升序排列 string数组 - 不好用
+参数：
+--- 1. []string 信号列表
+
+返回值：
+无
+*/
+func sortStringArr(sigpkgList []string) {
+	sort.Slice(sigpkgList, func(i, j int) bool {
+		// num1, _ := strconv.Atoi(sigpkgList[i][len(sigpkgList[i])-7 : len(sigpkgList[i])-5])
+		// num2, _ := strconv.Atoi(sigpkgList[j][len(sigpkgList[j])-7 : len(sigpkgList[j])-5])
+		num1 := regOneSigNum(sigpkgList[i])
+		num2 := regOneSigNum(sigpkgList[j])
+		return num1 < num2
+	})
+	for _, val := range sigpkgList {
+		fmt.Println(val)
+	}
+}
+
+/*
+功能：提取一个信号的 数字.bvsp
+例子："E:\\xinhao\\AEE_Sparrow2_5745\\2.bvsp"
+参数：
+--- 1. oneSigPath string 信号 "E:\\xinhao\\AEE_Sparrow2_5745\\2.bvsp"
+
+返回值：
+num
+*/
+func regOneSigNum(oneSigPath string) int {
+	// fmt.Println("---------------------- oneSigPath= ", oneSigPath)
+	re := regexp.MustCompile(`(\d+)\.(bvsp|dat)$`)
+	match := re.FindStringSubmatch(oneSigPath)
+
+	num := 0
+	if len(match) > 1 {
+		num, err = strconv.Atoi(match[1])
+		if err != nil {
+			fmt.Println("正则匹配oneSig No match found.")
+			num = 0
+		}
+	}
+	// fmt.Println(num)
+	return num
 }
