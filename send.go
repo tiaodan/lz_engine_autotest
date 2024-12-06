@@ -82,13 +82,13 @@ func sendTask() {
 			}
 		*/
 		if sigpkg != "[换文件夹]" && changeFolderFlag {
-			logrus.Infof("index=%v, 切换信号文件夹标志=true, 跳过当前循环, sig=", i, sigpkg)
+			logrus.Infof("index=%v, 切换信号文件夹标志=true, 跳过当前循环, sig=%v", i, sigpkg)
 			continue
 		}
 
 		// copy过来的代码
 		fmt.Printf("发送信号, index = %v, tasklist= %v \n", i, sigpkg)
-		logrus.Infof("发送信号, index = %v, tasklist= %v \n", i, sigpkg)
+		logrus.Infof("发送信号, index = %v, tasklist= %v ", i, sigpkg)
 		if sigpkg == "[换文件夹]" {
 			// writeSendExcel(i, "[换文件夹]", time.Now()) //
 			if i+1 < len(droneObjList) { // 不加这个，数组越界

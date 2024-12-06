@@ -1,0 +1,39 @@
+# 网络相关
+[network]
+# 设备ip
+devIp=192.168.85.95
+
+# 信号相关
+[signal]
+# 信号包文件夹路径
+sigDir=C:\Users\root1\Desktop\xinhao
+
+# 发送间隔时间:毫秒/MB,按信号包大小
+sigPkgSendInterval=100
+
+# 换文件夹等待时间:秒。 建议参考: 控制器-无人机超时时间
+cdFolderInterval=10
+
+# 查询无人机间隔时间:秒
+queryDroneInterval=4
+
+# 文件相关-暂时没用着
+[file]
+#  预发送记录文件
+preSendHistoryFilePath=
+#  查询记录文件
+queryHistroyFilePath=
+#  错误记录文件
+errorHistoryFilePath=
+#  分析报告文件
+reportFilePath=
+
+# 日志相关
+[log]
+# 日志级别, 只认：debug 、info 、 error，不区分大小写。写其它的都按debug处理
+logLevel=INfo
+
+# 时间相关
+[time]
+# 开始时间
+starttime=

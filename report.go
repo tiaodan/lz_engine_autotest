@@ -35,7 +35,7 @@ func createReport() {
 	// 设置列宽
 	reportFile.SetColWidth("分析报告", "A", "F", 35)
 	// 写入表头
-	tableHeaders := []Any{"厂家", "具体机型路径", "要查询的机型", "查询结果", "异常原因"}
+	tableHeaders := []Any{"厂家", "具体机型路径", "要查询的机型", "查询结果", "异常原因", "总用时"}
 	err = reportFile.SetSheetRow("分析报告", "A1", &tableHeaders)
 	errorPanic(err)
 
@@ -67,8 +67,8 @@ func createReport() {
 		if currentDroneStr != row[0] || index+1 == len(rows) {
 			logrus.Debug("boolResultNoMistakeList = ", boolResultNoMistakeList)
 			logrus.Debug("boolResultNoMistakeList = ", boolResultHasMistakeList)
-			oneSigReportResult := checkAlgorithmWhereQueryResult(boolResultNoMistakeList, boolResultNoMistakeList)
-			logrus.Debug("单个信号包,自动化检测结果 = ", oneSigReportResult)
+			oneSigReportResult := checkAlgorithmWhereQueryResult(boolResultNoMistakeList, boolResultHasMistakeList)
+			logrus.Infof("report 单个信号包,结果。currentSigFolderDir=%v, currentDroneStr=%v, oneSigReportResult =%v ", currentSigFolderDir, currentDroneStr, oneSigReportResult)
 
 			// 写入行内容
 			tableRow := []Any{"厂家??", currentSigFolderDir, currentDroneStr, oneSigReportResult, "异常原因??"}
@@ -99,6 +99,8 @@ func createReport() {
 // - 步骤2:有误差结果,只要有TRUE (string类型),就返回true
 // 参数: 1 没有误差的bool列表 2 有误差的结果bool列表
 func checkAlgorithmWhereQueryResult(boolResultNoMistakeList []string, boolResultHasMistakeList []string) bool {
+	logrus.Info("report检测算法, 无误差结果 boolResultNoMistakeList= ", boolResultNoMistakeList)
+	logrus.Info("report检测算法, 有误差结果 boolResultHasMistakeList= ", boolResultHasMistakeList)
 	// 先判断 id相等 & 频率相等的 结果
 	for _, boolResultNoMistake := range boolResultNoMistakeList {
 		// 只要有TRUE (string类型),就返回true

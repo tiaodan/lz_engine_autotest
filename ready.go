@@ -67,6 +67,39 @@ func readConfig(configName string, configSuffix string, configRelPath string) {
 }
 
 /*
+功能：读取配置 - 小写的配置文件 (此文件为vippe.WriteConfig() 生成的)
+参数：
+1. 配置文件 名
+2. 配置文件 后缀名
+3. 配置文件 路径(相对路径)
+*/
+func readLowerConfig(configName string, configSuffix string, configRelPath string) {
+	// 读取配置
+	viper.SetConfigName(configName)    // 设置 配置文件名 eg: viper.SetConfigName("config")
+	viper.SetConfigType(configSuffix)  // 设置 配置文件后缀名 eg: viper.SetConfigType("ini")
+	viper.AddConfigPath(configRelPath) // 设置 配置文件路径 eg: viper.AddConfigPath(".")
+	err = viper.ReadInConfig()
+	errorPanic(err) // 出了异常就退出
+
+	devIp = viper.GetString("network.devip")                       // 设备ip
+	sigDir = viper.GetString("signal.sigdir")                      // 信号包文件夹路径
+	sigPkgSendInterval = viper.GetInt("signal.sigpkgsendinterval") // 发送间隔时间:毫秒/MB,按信号包大小
+	cdFolderInterval = viper.GetInt("signal.cdfolderinterval")     // 换文件夹等待时间:秒
+	queryDroneInterval = viper.GetInt("signal.querydroneinterval") // 查询无人机间隔时间:秒
+	logLevel = viper.GetString("log.loglevel")                     // 日志级别 只认：debug 、info 、 error，不区分大小写。写其它的都按debug处理
+	startTimeStr = viper.GetString("time.starttime")               // 开始时间str
+
+	// 打印配置
+	logrus.Info("配置 devIp (设备ip)= ", devIp)
+	logrus.Info("配置 sigDir (信号包根目录)= ", sigDir)
+	logrus.Info("配置 sigPkgSendInterval (发送间隔时间:毫秒/MB,按信号包大小)= ", sigPkgSendInterval)
+	logrus.Info("配置 cdFolderInterval (换文件夹等待时间:秒)= ", cdFolderInterval)
+	logrus.Info("配置 queryDroneInterval (查询无人机间隔时间:秒)= ", queryDroneInterval)
+	logrus.Info("配置 logLevel (日志级别)= ", logLevel)
+	logrus.Info("配置 开始时间str = ", startTimeStr)
+}
+
+/*
 功能：设置变量(全局+局部变量)
 参数：
 1.
@@ -82,13 +115,8 @@ func setVar() {
 
 	// 文件相关变量。设置成 文件-时间.xlsx
 	preSendHistoryFilePath = "待发送列表-" + startTimeStr + ".xlsx"
-	queryHistroyFilePath = "查询列表" + startTimeStr + ".xlsx"
-	reportFilePath = "分析报告" + startTimeStr + ".xlsx"
 	preSendHistoryFileSheetName = "待发送列表"
-
 	preSendHistoryFileTxtPath = "待发送列表-" + startTimeStr + ".txt" // 预发送记录文件txt 路径
-	queryHistroyFileTxtPath = "查询列表" + startTimeStr + ".txt"     // 查询记录文件txt 路径
-	reportFileTxtPath = "分析报告" + startTimeStr + ".txt"           // 分析报告文件txt 路径
 
 	// 配置日志相关
 	// 配置日志等级
@@ -102,7 +130,16 @@ func setVar() {
 	} else {
 		logrusLevel = logrus.DebugLevel
 	}
+
 	logrus.SetLevel(logrusLevel)
+
+	// 设置配置文件，当前时间
+	// viper.SetConfigName("config") // 设置 配置文件名 eg: viper.SetConfigName("config")
+	// viper.SetConfigType("ini")    // 设置 配置文件后缀名 eg: viper.SetConfigType("ini")
+	// viper.AddConfigPath(".")      // 设置 配置文件路径 eg: viper.AddConfigPath(".")
+	viper.Set("time.startTime", startTimeStr)
+	err = viper.WriteConfig() // 写到配置文件里
+	errorPanic(err)
 
 	// 打印变量
 	logrus.Debug("全局变量 startTime (程序开始时间)= ", startTime)
@@ -155,6 +192,37 @@ func createPreSendHistoryFile(filePath string) {
 }
 
 /*
+功能：创建 待发送信号列表文件-txt 表头,方便用户查看，因为打开excel文件，程序会报错。
+命名格式：待发送信号列表-20240102-103020.xlsx (名字+年月日-时分秒)
+参数：
+1. filePath string 文件路径
+
+思路：
+1. 创建或者打开文件
+2. 创建sheet
+3. 设置活动窗口为 新建sheet
+4. 设置列宽
+5. 创建表头
+7. 保存文件
+6. 循环读取信号包所有文件，写入行内容
+*/
+func createPreSendHistoryFileHeaderTxt(filePath string) {
+	logrus.Info("创建预发送txt文件表头")
+	// 1. 创建或者打开文件
+	preSendHistoryTxtFile, err = createOrOpenTxtFile(filePath)
+	errorPanic(err)
+
+	// 5. 创建表头
+	_, err = preSendHistoryTxtFile.WriteString("厂家, 信号包路径, 要查询的无人机, 待发送信号列表 \n")
+	if err != nil {
+		logrus.Error("写入txt文件失败, err=", err)
+	}
+
+	// 关闭文件
+	preSendHistoryTxtFile.Close()
+}
+
+/*
 功能：创建 待发送信号列表文件-txt,方便用户查看，因为打开excel文件，程序会报错。
 命名格式：待发送信号列表-20240102-103020.xlsx (名字+年月日-时分秒)
 参数：
@@ -170,19 +238,19 @@ func createPreSendHistoryFile(filePath string) {
 6. 循环读取信号包所有文件，写入行内容
 */
 func createPreSendHistoryFileTxt(filePath string) {
+	logrus.Info("创建预发送txt文件")
 	// 1. 创建或者打开文件
 	preSendHistoryTxtFile, err = createOrOpenTxtFile(filePath)
 	errorPanic(err)
 
-	// 5. 创建表头
-	preSendHistoryTxtFile.WriteString("厂家, 信号包路径, 要查询的无人机, 待发送信号列表\n")
 	// 7. 保存文件
-	// err = preSendHistoryFile.SaveAs(preSendHistoryFilePath)
-	// errorPanic(err)
 
 	// 6. 循环读取信号包所有文件，写入行内容
 	// err = setPreSendHistoryFileSheetRow(sigDir)
 	// errorPanic(err)
+
+	// 关闭文件
+	preSendHistoryTxtFile.Close()
 }
 
 /*
@@ -345,7 +413,9 @@ func loopFile(path string) {
 				logrus.Infof("写入待发送信号列表, 厂家=%v, 信号包路径=%v, 要查询的无人机=%v, 待发送信号列表=%v", sigDir, currentSigDirPath, currentQueryTargetDrone, sigpkgList)
 				// writeExcelTableRowByArgs(sigDir, currentSigDirPath, currentQueryTargetDrone, sigpkgList)  // 原来的写法- sigpkgList
 				writeExcelTableRowByArgs(sigDir, currentSigDirPath, currentQueryTargetDrone, sigpkgList) // v0.0.0.1的写法- sigpkgList
-				sigpkgList = make([]string, 0)                                                           // 重置信号列表为空
+				logrus.Info("要写入txt siglist= ", sigpkgList)
+				// writeTxtRowByArgs(sigDir, currentSigDirPath, currentQueryTargetDrone, sigpkgList) // v0.0.0.1的写法- sigpkgList
+				sigpkgList = make([]string, 0) // 重置信号列表为空
 			}
 		} else {
 			logrus.Debug("------------- 某个信号目录已经遍历完了,已经切到另一个目录")
@@ -432,6 +502,41 @@ func writeExcelTableRowByArgs(sigDir string, currentSigDirPath string, currentQu
 	// 7. 保存文件
 	err = preSendHistoryFile.SaveAs(preSendHistoryFilePath)
 	errorPanic(err)
+}
+
+/*
+功能：根据参数, 写入tablerow 到txt表
+参数：
+--- 1. excelObj excel文件对象  参数弃用
+--- 2. sheetName 表名  名字=待发送列表, 参数弃用
+3. &[]Any{"厂家", "信号包路径", "要查询的无人机", "待发送信号列表", "是否已发送 TRUE/FALSE"}
+1. sigDir  厂家
+2. currentSigDirPath  信号包路径
+3. currentQueryTargetDrone  要查询的无人机
+4. sigpkgList  待发送信号列表
+
+返回值：
+无
+*/
+func writeTxtRowByArgs(sigDir string, currentSigDirPath string, currentQueryTargetDrone Drone, sigpkgList []string) {
+	// writeExcelTableRowByArgs(preSendHistoryFile, "待发送列表", &[]Any{sigDir, currentSigDirPath, currentQueryTargetDrone, sigpkgList})
+
+	// 1. 创建或者打开文件
+	preSendHistoryTxtFile, err = createOrOpenTxtFile(preSendHistoryFileTxtPath)
+	errorPanic(err)
+
+	logrus.Debug("-----------------------------------------------写入待发送列表 txt前，当前飞机=", currentQueryTargetDrone)
+	for index, sig := range sigpkgList {
+		logrus.Debugf("写入待发送列表.txt, index=%v, sig= %v, drone=%v", index, sig, currentQueryTargetDrone)
+		// 5. 写入
+		rowStr := fmt.Sprintf("%v, %v, %v, %v \n", sigDir, currentSigDirPath, currentQueryTargetDrone, sig)
+		_, err = preSendHistoryTxtFile.WriteString(rowStr + "\n")
+		if err != nil {
+			logrus.Error("写入查询txt文件row失败, err=", err)
+		}
+	}
+	// 7. 保存文件
+	preSendHistoryTxtFile.Close()
 }
 
 /*

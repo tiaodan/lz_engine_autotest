@@ -16,7 +16,10 @@
 package main
 
 import (
+	"bufio"
+	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -77,24 +80,7 @@ var (
 
 // 初始化，默认调用
 func init() {
-	// 读取配置
-	logrus.Debug("读取配置")
-	readConfig("config", "ini", ".")
-
-	// 配置日志等级
-	// logrus.SetLevel(logrus.DebugLevel)
-	// logrus.SetLevel(logrus.InfoLevel)
-	logrus.Debug("------------ ready 阶段 start")
-
-	// 设置变量（全局变量+局部变量）
-	logrus.Debug("设置变量（全局变量+局部变量）")
-	setVar()
-
-	// 生成预发送信号列表文件
-	logrus.Debug("生成预发送信号列表文件")
-	createPreSendHistoryFile(preSendHistoryFilePath)
-	createPreSendHistoryFileTxt(preSendHistoryFileTxtPath) // txt文件
-	logrus.Debug("------------ ready 阶段 end")
+	// 默认调用
 }
 
 func todoList() {
@@ -137,25 +123,134 @@ func todoList() {
 	logrus.Info("----------- 如果机型.txt 里2行, 会报错。要处理这种")
 	logrus.Info("----------- 如果没有机型.txt , 没有id.txt，也要有一种方式，检测信号")
 	logrus.Info("----------- 第一次发送失败的，过完一遍后，再发一遍失败的信号")
+	logrus.Info("----------- 还是有时查询无法进去report阶段?好像有误差结果=TRUE时, 不会中断。需要再试试。是这样的")
+	logrus.Info("----------- 写入txt文件, 写的不全，只写入了最后一个？确实写了，好像旧的把新的覆盖了，没有在原来的基础上写入？")
+	logrus.Info("----------- 分阶段操作, ready send report阶段,有命令")
+	logrus.Info("----------- 如何在windows 界面编译成linux执行程序")
+	logrus.Info("----------- ready feed report 三个命令整合到一个控制台上。1-ready 2-feed 3 report 4一键执行上述内容")
+	logrus.Info("----------- vipper 写入配置文件，写的都是小写，跟原始文件不同")
+	logrus.Info("----------- 换文件时候，查询的记录算在下一个信号了，如果查询时间是4秒，很容易当前信号发完了，下个信号时候才检测到。如果优化，换文件夹时，按当前文件信号来记录。先2秒用着，有问题了再说")
+	logrus.Info("----------- 统计里加一个总用时")
+	logrus.Info("----------- 找一个发送信号的最优效率解")
+	logrus.Info("----------- 要判断一个信号，有没有误报、多报")
+	logrus.Info("----------- MMC 1550 会报很多信号")
+	logrus.Info("----------- KEWEITAI_x6lm?2420 这个信号目前有2个信号, 海外=1434927124, 标准版=753341352, 如何处理这种情况？？问无线同事，有的机型， 比如遥控器，可能随机分配id。有的无人机解不出id，给了一个固定id")
+	logrus.Info("----------- 是否要考虑频率检测的误差调大些，比如20M?RC-MICROZONE_MC6C_2450 这个显示2477M 差快30? 异常原因要些 误差大")
+	logrus.Info("----------- 配置项, 加一个频率误差范围，允许的范围 int型,表示多少M 比如10  20")
+	logrus.Info("----------- 查询列表，切换文件夹的时间间隔，查询的当前飞机应该 = 上一次飞机")
+	logrus.Info("----------- 待写一个使用说明-给同事看（同事看完不用问，直接就能用，说明写好了）")
+	logrus.Info("----------- 把id 和机型.txt 信息同步到 云excel, 方便同事，自己创建id.txt文件")
+	logrus.Info("----------- 查询列表如果只有1条信号, 报告不会出现该条. 信号=RTK-RTK_5767_3")
+	logrus.Info("----------- 如果信号放一轮，没有的话，是否需要循环放2遍？")
 	logrus.Info("----------- 待办事项 end")
 }
 
 // 程序入口
 func main() {
-	todoList() // 待办事项，后面删
-	logrus.Debug("------------feed 阶段 start")
+	// ready() // 临时测试用的
+	// todoList() // 待办事项，后面删
+
+	reader := bufio.NewReader(os.Stdin)
+	fmt.Println("请输入要执行的命令：1 - ready, 2 - feed, 3 - report, 0 - 退出")
+	input, _ := reader.ReadString('\n')
+	input = strings.TrimSpace(input)
+
+	switch input {
+	case "1":
+		logrus.Info("执行 ready 命令")
+		// 执行对应的命令代码
+		ready()
+	case "2":
+		logrus.Info("执行 feed 命令")
+		// 执行对应的命令代码
+		feed()
+	case "3":
+		logrus.Info("执行 report 命令")
+		// 执行对应的命令代码
+		report()
+	case "4":
+		logrus.Info("一键执行以上所有命令")
+		// 执行对应的命令代码
+		ready()
+		feed()
+		report()
+	case "0":
+		logrus.Info("退出程序")
+		return
+	default:
+		logrus.Info("无效输入，请重新输入")
+	}
+}
+
+// 功能 ready 流程
+func ready() {
+	// 读取配置
+	logrus.Debug("读取配置")
+	// readConfig("config", "ini", ".") // 现在配置文件，全是小写了，等修复了此问题再改过来
+	readLowerConfig("config", "ini", ".") // 现在配置文件，全是小写了，等修复了此问题再改过来
+
+	// 配置日志等级
+	// logrus.SetLevel(logrus.DebugLevel)  // 设置已经写在setVar()方法里
+	// logrus.SetLevel(logrus.InfoLevel)
+	logrus.Info("------------ ready 阶段 start")
+
+	// 设置变量（全局变量+局部变量）
+	logrus.Debug("设置变量（全局变量+局部变量）")
+	setVar()
+
+	// 生成预发送信号列表文件
+	logrus.Debug("生成预发送信号列表文件")
+	createPreSendHistoryFile(preSendHistoryFilePath)
+	// createPreSendHistoryFileHeaderTxt(preSendHistoryFileTxtPath) // txt文件表头
+	// createPreSendHistoryFileTxt(preSendHistoryFileTxtPath)       // txt文件,这个方法用不到，因为已经在上面写excel方法里createPreSendHistoryFile()，写了txt
+	logrus.Info("------------ ready 阶段 end")
+}
+
+// 功能 feed 流程
+func feed() {
+	logrus.Info("------------feed 阶段 start")
+	// 读取配置
+	readLowerConfig("config", "ini", ".")
+	// 读取配置开始时间
+
+	preSendHistoryFilePath = "待发送列表-" + startTimeStr + ".xlsx"
+	preSendHistoryFileSheetName = "待发送列表"
+	preSendHistoryFileTxtPath = "待发送列表-" + startTimeStr + ".txt" // 预发送记录文件txt 路径
+	fmt.Println("startTimeStr= ", startTimeStr)
+
+	fmt.Println("preSendHistoryFilePath= ", preSendHistoryFilePath)
+	queryHistroyFilePath = "查询列表" + startTimeStr + ".xlsx"   // 查询文件路径
+	queryHistroyFileTxtPath = "查询列表" + startTimeStr + ".txt" // 查询记录文件txt 路径
+
+	// 1. 创建或者打开文件
+	preSendHistoryFile, err = createOrOpenExcelFile(preSendHistoryFilePath)
+	errorPanic(err)
 
 	// 步骤3：发送信号      - 原来的 feed 环节
 	go sendTask()
 	queryTask()
 
-	logrus.Debug("------------feed 阶段 end")
+	logrus.Info("------------feed 阶段 end")
+}
 
+// 功能 report 流程
+func report() {
 	logrus.Info("--------------- report 环境 start ---------------")
+	// 读取配置
+	readLowerConfig("config", "ini", ".")
+
+	queryHistroyFilePath = "查询列表" + startTimeStr + ".xlsx"   // 查询文件路径
+	queryHistroyFileTxtPath = "查询列表" + startTimeStr + ".txt" // 查询记录文件txt 路径
+	reportFilePath = "分析报告" + startTimeStr + ".xlsx"         // 查询文件路径
+
+	// 1. 创建或者打开文件
+	queryHistroyFile, err = createOrOpenExcelFile(queryHistroyFilePath)
+	errorPanic(err)
 	// 步骤4：判断设备检测的是否对   - 原来的 report 环节
 	// 比较
 	// 生成报告
+	// queryHistroyFilePath = "查询列表20241204-101626.xlsx"                   // 注释：临时测试report模块时用，属于测试代码
+	// queryHistroyFile, err = createOrOpenExcelFile(queryHistroyFilePath) // 注释：临时测试report模块时用，属于测试代码
 	createReport()
 	logrus.Info("--------------- report 环境 end ---------------")
-
 }

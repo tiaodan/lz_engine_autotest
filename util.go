@@ -57,12 +57,13 @@ func createOrOpenExcelFile(filePath string) (*excelize.File, error) {
 func createOrOpenTxtFile(filePath string) (*os.File, error) {
 	// 1. 检测文件是否存在，不存在就创建文件  2. 文件存在，就打开
 	// 打开文件或创建新文件
-	file, err := os.Create("output.txt")
+	// file, err := os.Create(filePath) // 好像只能创建 - 也能用
+	file, err := os.OpenFile(filePath, os.O_RDWR|os.O_CREATE, 0666) // 另一种写法,这种更推荐
 	if err != nil {
 		logrus.Error("文件创建或打开失败,err= ", err)
 		return nil, err
 	}
-	defer file.Close()
+	// defer file.Close() // 注释掉。不然报错：msg="写入txt文件失败, err=write 待发送列表-20241203-163152.txt: file already closed"
 
 	return file, err
 }
