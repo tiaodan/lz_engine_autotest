@@ -1,0 +1,5 @@
+要查询的飞机id, 查询到的飞机, 查询结果(有id并且频率误差<50)-有没有(true/false), 查询结果(有id并且频率相等)-有没有(true/false), 信号文件夹路径, 当前时间(用于计算总时间)
+{GLIDER General 2462101 5475c52a}, [{DJI Mini4Pro 5776500 F6Z9C23980036T8Z} {GLIDER General 2452101 5475c52a}], true, false, C:\A_software\xinhao\xinhao-zhongzhuan\多个信号\GLIDER\GLIDER_General_2437, 2024-12-09 14:56:53.4326642 +0800 CST m=+29.489611701 
+.4311977 +0800 CST m=+27.488145201 
+
+

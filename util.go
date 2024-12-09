@@ -84,6 +84,23 @@ func time2stringforFilename(time time.Time) string {
 }
 
 /*
+功能: string 转成 time 类型
+参数：
+1. timeStr (string) eg. 20241209-094427
+
+返回值：
+1. time (time.Time) 时间类型
+2. error (本来打算返回error,但不知道怎么操作)
+*/
+func string2time(timeStr string) time.Time {
+	t, err := time.Parse("20060102-150405", timeStr)
+	if err != nil {
+		logrus.Error("转换str时间类型, 报错, err= ", err)
+	}
+	return t
+}
+
+/*
 功能：判断文件 后缀是否 以指定后缀结尾。如判断文件 结尾，是否包含 “机型.txt”
 参数：
 1. path 文件路径

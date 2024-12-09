@@ -151,6 +151,8 @@ func todoList() {
 	logrus.Info("----------- 日志老是显示: tcp发送失败，等待3秒后重试")
 	logrus.Info("----------- 能检测到的, 要稳定百分百检测到")
 	logrus.Info("----------- 换文件夹后，没发送新的信号")
+	logrus.Info("----------- 测试效率最高, 超时时间ttl=8秒, 切换文件夹时间=6秒, 查询间隔2秒")
+	logrus.Info("----------- 统计报告report excel 加上总用时")
 	logrus.Info("----------- 待办事项 end")
 }
 
@@ -166,6 +168,7 @@ func main() {
 	fmt.Println("3 - report,")
 	fmt.Println("4 - 一键执行步骤123")
 	fmt.Println("5 - delete history file")
+	fmt.Println("6 - 一键执行 步骤5、4")
 	fmt.Println("0 - 退出")
 	input, _ := reader.ReadString('\n')
 	input = strings.TrimSpace(input)
@@ -193,6 +196,13 @@ func main() {
 		logrus.Info("删除当前目录 xlsx文件, txt文件")
 		// 执行对应的命令代码
 		deleteHistroyFile()
+	case "6":
+		logrus.Info("一键执行 步骤5、4")
+		// 执行对应的命令代码
+		deleteHistroyFile()
+		ready()
+		feed()
+		report()
 	case "0":
 		logrus.Info("退出程序")
 		return

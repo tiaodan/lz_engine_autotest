@@ -5,6 +5,7 @@ package main
 
 import (
 	"strconv"
+	"time"
 
 	"github.com/sirupsen/logrus"
 )
@@ -35,7 +36,7 @@ func createReport() {
 	// 设置列宽
 	reportFile.SetColWidth("分析报告", "A", "F", 35)
 	// 写入表头
-	tableHeaders := []Any{"厂家", "具体机型路径", "要查询的机型", "查询结果", "异常原因", "总用时"}
+	tableHeaders := []Any{"厂家", "具体机型路径", "要查询的机型", "查询结果", "异常原因", "总用时(单位: 分钟)"}
 	err = reportFile.SetSheetRow("分析报告", "A1", &tableHeaders)
 	errorPanic(err)
 
@@ -49,7 +50,32 @@ func createReport() {
 	currentDroneStr := ""    // 用于区分？？，怎么说
 	writeReportRowIndex := 2 // 写入报告表index
 	// for index := 1; index <= len(rows); index++ {
+
+	// 计算总时长 单位：秒
+	var queryStartTime time.Time
+	var queryEndTime time.Time
+	for index, row := range rows {
+		if index == 1 {
+			logrus.Info("feed总用时(单位: 分钟) queryStartTimeStr= ", (row[5]))
+			queryStartTime = string2time(row[5])
+		}
+		if index == len(rows)-1 {
+			logrus.Info("feed总用时(单位: 分钟) queryEndTimeStr= ", (row[5]))
+			queryEndTime = string2time(row[5])
+		}
+	}
+	// str1 := "20241209-094427"
+	// str2 := "20241209-094627"
+	// queryStartTime = string2time(str1)
+	// queryEndTime = string2time(str2)
+	totalTime := queryEndTime.Sub(queryStartTime).Minutes()    // 总用时, 其实是查询总用时
+	totalTimeStr := strconv.FormatFloat(totalTime, 'f', 2, 64) // 总用时, 其实是查询总用时 string类型
+	logrus.Info("feed总用时(单位: 分钟) queryStartTime= ", queryStartTime)
+	logrus.Info("feed总用时(单位: 分钟) queryEndTime= ", queryEndTime)
+	logrus.Info("feed总用时(单位: 分钟) = ", totalTimeStr)
+
 	for index, row := range rows { // 不好处理的写法, index 和row同步？
+		currentSigFolderDir = row[4]
 		if index == 0 {
 			continue
 		}
@@ -63,15 +89,16 @@ func createReport() {
 			boolResultNoMistakeList = append(boolResultNoMistakeList, row[3])
 			boolResultHasMistakeList = append(boolResultHasMistakeList, row[2])
 		}
-		// currentDroneStr 不一样的时候，写入报告一条数据, 或者是最后一条数据时
-		if currentDroneStr != row[0] || index+1 == len(rows) {
+		// currentDroneStr 不一样的时候，写入报告一条数据, 或者是最后一条数据时,或者是信号包路径不一样时
+		// if currentDroneStr != row[0] || index+1 == len(rows) { // 原来的写法
+		if (index+1 < len(rows) && currentSigFolderDir != rows[index+1][4]) || index+1 == len(rows) { // 现在的写法
 			logrus.Debug("boolResultNoMistakeList = ", boolResultNoMistakeList)
 			logrus.Debug("boolResultNoMistakeList = ", boolResultHasMistakeList)
 			oneSigReportResult := checkAlgorithmWhereQueryResult(boolResultNoMistakeList, boolResultHasMistakeList)
 			logrus.Infof("report 单个信号包,结果。currentSigFolderDir=%v, currentDroneStr=%v, oneSigReportResult =%v ", currentSigFolderDir, currentDroneStr, oneSigReportResult)
 
 			// 写入行内容
-			tableRow := []Any{"厂家??", currentSigFolderDir, currentDroneStr, oneSigReportResult, "异常原因??"}
+			tableRow := []Any{"厂家??", currentSigFolderDir, currentDroneStr, oneSigReportResult, "", totalTimeStr}
 			logrus.Debug("---------------- 打算写入文件,currentDroneStr", currentDroneStr)
 			logrus.Debug("---------------- 打算写入文件", &tableRow)
 			err = reportFile.SetSheetRow("分析报告", "A"+strconv.Itoa(writeReportRowIndex), &tableRow)
