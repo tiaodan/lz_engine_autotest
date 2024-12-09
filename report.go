@@ -47,6 +47,7 @@ func createReport() {
 	errorPanic(err)
 	var boolResultNoMistakeList []string
 	var boolResultHasMistakeList []string
+	var boolResultDroneNameEqualList []string
 	currentDroneStr := ""    // 用于区分？？，怎么说
 	writeReportRowIndex := 2 // 写入报告表index
 	// for index := 1; index <= len(rows); index++ {
@@ -88,28 +89,32 @@ func createReport() {
 		if currentDroneStr == row[0] {
 			boolResultNoMistakeList = append(boolResultNoMistakeList, row[3])
 			boolResultHasMistakeList = append(boolResultHasMistakeList, row[2])
+			boolResultDroneNameEqualList = append(boolResultDroneNameEqualList, row[6])
 		}
 		// currentDroneStr 不一样的时候，写入报告一条数据, 或者是最后一条数据时,或者是信号包路径不一样时
 		// if currentDroneStr != row[0] || index+1 == len(rows) { // 原来的写法
 		if (index+1 < len(rows) && currentSigFolderDir != rows[index+1][4]) || index+1 == len(rows) { // 现在的写法
 			logrus.Debug("boolResultNoMistakeList = ", boolResultNoMistakeList)
 			logrus.Debug("boolResultNoMistakeList = ", boolResultHasMistakeList)
-			oneSigReportResult := checkAlgorithmWhereQueryResult(boolResultNoMistakeList, boolResultHasMistakeList)
+			oneSigReportResult, errorReason := checkAlgorithmWhereQueryResult(boolResultDroneNameEqualList, boolResultNoMistakeList, boolResultHasMistakeList)
 			logrus.Infof("report 单个信号包,结果。currentSigFolderDir=%v, currentDroneStr=%v, oneSigReportResult =%v ", currentSigFolderDir, currentDroneStr, oneSigReportResult)
 
 			// 写入行内容
-			tableRow := []Any{"厂家??", currentSigFolderDir, currentDroneStr, oneSigReportResult, "", totalTimeStr}
+			tableRow := []Any{"厂家??", currentSigFolderDir, currentDroneStr, oneSigReportResult, errorReason, totalTimeStr}
 			logrus.Debug("---------------- 打算写入文件,currentDroneStr", currentDroneStr)
 			logrus.Debug("---------------- 打算写入文件", &tableRow)
 			err = reportFile.SetSheetRow("分析报告", "A"+strconv.Itoa(writeReportRowIndex), &tableRow)
 			errorPanic(err)
 
 			// 写入后, 重置变量
+			boolResultDroneNameEqualList = []string{}
 			boolResultNoMistakeList = []string{}
 			boolResultHasMistakeList = []string{}
-			currentDroneStr = row[0]
-			boolResultNoMistakeList = append(boolResultNoMistakeList, row[3])
-			boolResultHasMistakeList = append(boolResultHasMistakeList, row[2])
+			if index+1 < len(rows) { // 不加这个，数组越界
+				currentDroneStr = rows[index+1][0]
+			}
+			// boolResultNoMistakeList = append(boolResultNoMistakeList, row[3])   // 为什么写这2句？
+			// boolResultHasMistakeList = append(boolResultHasMistakeList, row[2]) // 为什么写这2句？
 			writeReportRowIndex++
 		}
 	}
@@ -122,27 +127,61 @@ func createReport() {
 
 // 处理查询结果的算法 - 写到 报告的表里
 // 算法:
+// (有误差/ 无误差 频率) + 机型名字 ，全true,才return true。所以先判断机型
+// - 步骤3:机型名字结果,只要有TRUE (string类型),就返回true
 // - 步骤1:无误差结果,只要有TRUE (string类型),就返回true
 // - 步骤2:有误差结果,只要有TRUE (string类型),就返回true
 // 参数: 1 没有误差的bool列表 2 有误差的结果bool列表
-func checkAlgorithmWhereQueryResult(boolResultNoMistakeList []string, boolResultHasMistakeList []string) bool {
+// 返回值：
+// arg1: 正确？ bool
+// arg2: 异常原因 errorReason  string 。 正常填nil
+func checkAlgorithmWhereQueryResult(boolResultDroneNameEqualList []string, boolResultNoMistakeList []string, boolResultHasMistakeList []string) (bool, string) {
+	logrus.Info("report检测算法, 机型名称结果 boolResultDroneNameEqualList= ", boolResultDroneNameEqualList)
 	logrus.Info("report检测算法, 无误差结果 boolResultNoMistakeList= ", boolResultNoMistakeList)
 	logrus.Info("report检测算法, 有误差结果 boolResultHasMistakeList= ", boolResultHasMistakeList)
-	// 先判断 id相等 & 频率相等的 结果
+
+	errorReason := "" // 异常内容
+	nameMatch := false
+	noMistakeMatch := false
+	hasMistakeMatch := false
+
+	// 检查机型名称是否匹配
+	for _, boolResultDroneNameEqual := range boolResultDroneNameEqualList {
+		if boolResultDroneNameEqual == "TRUE" {
+			nameMatch = true
+			break
+		}
+	}
+	// if !nameMatch {
+	// 	errorReason = "机型名称不符"
+	// }
+
+	// 检查至少一个 boolResultNoMistake 为 true
 	for _, boolResultNoMistake := range boolResultNoMistakeList {
-		// 只要有TRUE (string类型),就返回true
 		if boolResultNoMistake == "TRUE" {
-			return true
+			noMistakeMatch = true
+			break
 		}
 	}
 
-	// 再判断 id相等 & 频率有误差的 结果
+	// 检查至少一个 boolResultHasMistake 为 true
 	for _, boolResultHasMistake := range boolResultHasMistakeList {
-		// 只要有TRUE (string类型),就返回true
 		if boolResultHasMistake == "TRUE" {
-			return true
+			hasMistakeMatch = true
+			break
 		}
 	}
 
-	return false
+	// 检查条件是否满足，机型名称相等且至少一个 boolResultNoMistake 或boolResultHasMistake 为 true
+	if nameMatch && (noMistakeMatch || hasMistakeMatch) {
+		return true, ""
+	}
+
+	if !nameMatch {
+		errorReason = "机型名称不符"
+	} else if !noMistakeMatch && !hasMistakeMatch {
+		errorReason = "频率不匹配, 误差>10M"
+	}
+
+	return false, errorReason
 }

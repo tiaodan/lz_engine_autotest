@@ -131,8 +131,9 @@ func queryTask() {
 			queryResultHasMistake := checkAlgorithmWhereFreqHasMistake(droneList, currentQueryTargetDrone) // 判断是否查询到 ,true / false, 后面再写逻辑,判断true/false
 			queryResultNoMistake := checkAlgorithmWhereFreqNoMistake(droneList, currentQueryTargetDrone)   // 判断是否查询到 ,true / false, 后面再写逻辑,判断true/false
 			currentTime := time.Now()
-			writeQueryExcel(currentQueryTargetDrone, droneList, queryResultHasMistake, queryResultNoMistake, currentSigDirPath, currentTime) // 最早的参数-3个,// 表头: 时间, 飞机, 时间戳, 要查询的飞机id, 查询结果-有没有(true/ false)
-			writeQuery2Txt(currentQueryTargetDrone, droneList, queryResultHasMistake, queryResultNoMistake, currentSigDirPath, currentTime)  // 最早的参数-3个,// 表头: 时间, 飞机, 时间戳, 要查询的飞机id, 查询结果-有没有(true/ false)
+			droneNameIsEqual := checkAlgorithmWhereDroneNameIsEqual(droneList, currentQueryTargetDrone)                                                        // 判断是否查询到 ,true / false, 后面再写逻辑,判断true/false
+			writeQueryExcel(currentQueryTargetDrone, droneList, queryResultHasMistake, queryResultNoMistake, currentSigDirPath, currentTime, droneNameIsEqual) // 最早的参数-3个,// 表头: 时间, 飞机, 时间戳, 要查询的飞机id, 查询结果-有没有(true/ false)
+			writeQuery2Txt(currentQueryTargetDrone, droneList, queryResultHasMistake, queryResultNoMistake, currentSigDirPath, currentTime)                    // 最早的参数-3个,// 表头: 时间, 飞机, 时间戳, 要查询的飞机id, 查询结果-有没有(true/ false)
 			// v0.0.0.1 为了提高效率新增，一旦判断 queryResultNoMistake==true 或者queryResultNoMistake==false && queryResultHasMistake== true了，就不继续查了。发送个信号
 			if queryResultNoMistake {
 				logrus.Info("查询到正确数据, queryResultNoMistake==true, 发送信号: 切换文件夹")
@@ -244,10 +245,22 @@ func checkAlgorithmWhereFreqNoMistake(queriedDrones []Drone, targetDrone Drone) 
 	return false
 }
 
+// 检测算法-droneName 是否相等
+// 参数:已查到的飞机列表, 目标飞机
+func checkAlgorithmWhereDroneNameIsEqual(queriedDrones []Drone, targetDrone Drone) bool {
+	for _, queriedDrone := range queriedDrones {
+		// 判断查询到的飞机列表,id是否相等
+		if queriedDrone.Name == targetDrone.Name {
+			return true
+		}
+	}
+	return false
+}
+
 // func writeQueryExcel(ts string, res []Drone, t time.Time) {
 // 之前的参数-6个,// 表头: 时间, 飞机, 时间戳, 要查询的飞机id, 查询结果(带误差)-有没有(true/ false), 查询结果(无误差)-有没有(true/ false)
-// 现在的参数-?个,// 表头: 要查询的飞机id, 查询到的飞机, 查询结果(带误差)-有没有(true/ false), 查询结果(无误差)-有没有(true/ false), 信号文件夹路径,查询时间(用于统计总用时)
-func writeQueryExcel(preQueryDrone Drone, res []Drone, queryResultHasMistake bool, queryResultNoMistake bool, sigFolderPath string, currentTime time.Time) {
+// 现在的参数-?个,// 表头: 要查询的飞机id, 查询到的飞机, 查询结果(带误差)-有没有(true/ false), 查询结果(无误差)-有没有(true/ false), 信号文件夹路径,查询时间(用于统计总用时), 机型名称是否相等
+func writeQueryExcel(preQueryDrone Drone, res []Drone, queryResultHasMistake bool, queryResultNoMistake bool, sigFolderPath string, currentTime time.Time, droneNameIsEqual bool) {
 	logrus.Debug("写入查询excel, 写入内容 == ", preQueryDrone, res, queryResultHasMistake, queryResultNoMistake)
 	// 打开文件,不存在就创建
 	queryHistroyFile, err = createOrOpenExcelFile(queryHistroyFilePath)
@@ -258,12 +271,12 @@ func writeQueryExcel(preQueryDrone Drone, res []Drone, queryResultHasMistake boo
 
 	// 写入表头
 	// 表头: 时间, 飞机, 时间戳, 要查询的飞机id, 查询结果-有没有(true/ false), 信号文件夹路径
-	err = queryHistroyFile.SetSheetRow("sheet1", "A1", &[]Any{"要查询的飞机id", "查询到的飞机", "查询结果(有id并且频率误差<50)-有没有(true/false)", "查询结果(有id并且频率相等)-有没有(true/false)", "信号文件夹路径", "当前时间(用于计算总时间)"})
+	err = queryHistroyFile.SetSheetRow("sheet1", "A1", &[]Any{"要查询的飞机id", "查询到的飞机", "查询结果(有id并且频率误差<50)-有没有(true/false)", "查询结果(有id并且频率相等)-有没有(true/false)", "信号文件夹路径", "当前时间(用于计算总时间)", "机型名称是否相等"})
 
 	// 写入行内容
 	queryExcellen++
 
-	tableRow := &[]Any{preQueryDrone, res, queryResultHasMistake, queryResultNoMistake, sigFolderPath, time2stringforFilename(currentTime)}
+	tableRow := &[]Any{preQueryDrone, res, queryResultHasMistake, queryResultNoMistake, sigFolderPath, time2stringforFilename(currentTime), droneNameIsEqual}
 	logrus.Infof("写入查询记录表, 当前drone=%v, tableRow= %v, 信号包路径=%v", preQueryDrone, tableRow, sigFolderPath)
 	err = queryHistroyFile.SetSheetRow("Sheet1", "A"+strconv.Itoa(queryExcellen+1), tableRow)
 	errorPanic(err)
