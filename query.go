@@ -138,13 +138,18 @@ func queryTask() {
 				logrus.Info("查询到正确数据, queryResultNoMistake==true, 发送信号: 切换文件夹")
 				// userEndQuery <- any // 发送信号：用户停止当此查询 - 发这个信号不对，只能查1个
 				// userEndSend <- any // 发送信号：用户停止当此查询 - 发这个信号也不对，只能查1个
-				userChangeQuerySigFolder <- any // 发送信号：换信号文件夹
+				// userChangeQuerySigFolder <- any // 发送信号：换信号文件夹
+				changeFolderFlag = true
+				changeFolderFlagNum += 1
 			} else if queryResultHasMistake {
 				logrus.Info("查询到正确数据, queryResultNoMistake==false && queryResultHasMistake== true, 发送信号: 切换文件夹")
 				// userEndQuery <- any // 发送信号：用户停止当此查询 - 发这个信号不对，只能查1个
 				// userEndSend <- any // 发送信号：用户停止当此查询 - 发这个信号也不对，只能查1个
-				userChangeQuerySigFolder <- any // 发送信号：换信号文件夹
+				// userChangeQuerySigFolder <- any // 发送信号：换信号文件夹
+				changeFolderFlag = true
+				changeFolderFlagNum += 1
 			}
+
 			// default:
 			// 	fmt.Println("-------------------------------------------------判断超时, 查询,for 默认分支")
 			// 	logrus.Error("查询,for 默认分支，timeoutNum = ", timeoutNum)

@@ -19,6 +19,7 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -75,7 +76,9 @@ var (
 	userEndQuery             = make(chan Any, 1)
 	userChangeQuerySigFolder = make(chan Any, 1) // 切换查询信号文件夹。 v0.0.0.1 为优化查询效率新增
 
-	logLevel string // 日志级别
+	logLevel            string // 日志级别
+	changeFolderFlag    bool   // 换文件夹标志
+	changeFolderFlagNum int    // 换文件夹标志 num
 )
 
 // 初始化，默认调用
@@ -142,6 +145,12 @@ func todoList() {
 	logrus.Info("----------- 把id 和机型.txt 信息同步到 云excel, 方便同事，自己创建id.txt文件")
 	logrus.Info("----------- 查询列表如果只有1条信号, 报告不会出现该条. 信号=RTK-RTK_5767_3")
 	logrus.Info("----------- 如果信号放一轮，没有的话，是否需要循环放2遍？")
+	logrus.Info("----------- 测试稳定了，看分析报告的文件少？咋回事？")
+	logrus.Info("----------- 信号个数少于10,需要循环2遍/3遍")
+	logrus.Info("----------- 三个信号包，要查询的id+机型一致, 会认为是1个, 有问题")
+	logrus.Info("----------- 日志老是显示: tcp发送失败，等待3秒后重试")
+	logrus.Info("----------- 能检测到的, 要稳定百分百检测到")
+	logrus.Info("----------- 换文件夹后，没发送新的信号")
 	logrus.Info("----------- 待办事项 end")
 }
 
@@ -151,7 +160,13 @@ func main() {
 	// todoList() // 待办事项，后面删
 
 	reader := bufio.NewReader(os.Stdin)
-	fmt.Println("请输入要执行的命令：1 - ready, 2 - feed, 3 - report, 0 - 退出")
+	fmt.Println("请输入要执行的命令：")
+	fmt.Println("1 - ready")
+	fmt.Println("2 - feed")
+	fmt.Println("3 - report,")
+	fmt.Println("4 - 一键执行步骤123")
+	fmt.Println("5 - delete history file")
+	fmt.Println("0 - 退出")
 	input, _ := reader.ReadString('\n')
 	input = strings.TrimSpace(input)
 
@@ -174,6 +189,10 @@ func main() {
 		ready()
 		feed()
 		report()
+	case "5":
+		logrus.Info("删除当前目录 xlsx文件, txt文件")
+		// 执行对应的命令代码
+		deleteHistroyFile()
 	case "0":
 		logrus.Info("退出程序")
 		return
@@ -253,4 +272,27 @@ func report() {
 	// queryHistroyFile, err = createOrOpenExcelFile(queryHistroyFilePath) // 注释：临时测试report模块时用，属于测试代码
 	createReport()
 	logrus.Info("--------------- report 环境 end ---------------")
+}
+
+// 删除当前目录 xlsx文件, txt文件
+func deleteHistroyFile() {
+	err := filepath.Walk(".", func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if info.IsDir() {
+			return nil
+		}
+		if filepath.Ext(path) == ".xlsx" || filepath.Ext(path) == ".txt" {
+			fmt.Println("删除文件= ", path)
+			err := os.Remove(path)
+			if err != nil {
+				fmt.Println("删除文件出错:", err)
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		fmt.Println("遍历目录出错:", err)
+	}
 }

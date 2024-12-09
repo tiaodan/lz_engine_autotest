@@ -54,7 +54,7 @@ func sendTask() {
 	logrus.Debug("func=sendTask(), sigFolderPathList= ", sigFolderPathList)
 
 	sendInit()
-	changeFolderFlag := false // 换文件夹标志
+	// changeFolderFlag := false // 换文件夹标志
 	for i, sigpkg := range sigpkgList {
 		// 设置当前飞机，我自己加的代码
 		if i == 0 {
@@ -81,9 +81,11 @@ func sendTask() {
 			}
 			}
 		*/
-		if sigpkg != "[换文件夹]" && changeFolderFlag {
+		if sigpkg != "[换文件夹]" && changeFolderFlag && changeFolderFlagNum == 1 { // 切换文件夹消息数量==1时才认
 			logrus.Infof("index=%v, 切换信号文件夹标志=true, 跳过当前循环, sig=%v", i, sigpkg)
 			continue
+		} else {
+			changeFolderFlagNum = 0 // 重置
 		}
 
 		// copy过来的代码
@@ -92,21 +94,26 @@ func sendTask() {
 		if sigpkg == "[换文件夹]" {
 			// writeSendExcel(i, "[换文件夹]", time.Now()) //
 			if i+1 < len(droneObjList) { // 不加这个，数组越界
-				currentQueryTargetDrone = droneObjList[i+1] // 当前飞机，用于查询列表excel用
-				currentSigDirPath = sigFolderPathList[i+1]  // 当前信号文件夹路径
-				changeFolderFlag = false                    // 标志重置
+				// currentQueryTargetDrone = droneObjList[i+1] // 当前飞机，用于查询列表excel用  - 这样写，在查询等待的时间里，还是当前飞机=下一个飞机了
+				// currentSigDirPath = sigFolderPathList[i+1]  // 当前信号文件夹路径  - 这样写，在查询等待的时间里，还是当前飞机=下一个飞机了
+				changeFolderFlag = false // 标志重置
 			}
 			fmt.Println("[换文件夹]，等待", cdFolderInterval, "秒后发送")
 			logrus.Info("[换文件夹]，等待", cdFolderInterval, "秒后发送")
+			logrus.Info("[换文件夹]，等待期间, 当前飞机currentDrone= ", currentQueryTargetDrone)
+
 			select {
 			case <-time.After(time.Duration(cdFolderInterval) * time.Second):
+				if i+1 < len(droneObjList) { // 不加这个，数组越界
+					currentQueryTargetDrone = droneObjList[i+1] // 当前飞机，用于查询列表excel用 - 这样写，在查询等待的时间里，还是当前飞机，而不是下一个飞机了
+					currentSigDirPath = sigFolderPathList[i+1]
+				}
 			case <-userEndSend: // 匹配到信号，用户终止发送
 				connTCP.Close()
-				fmt.Println("关闭tcp")
+				fmt.Println("sigpkg == [换文件夹】分支, userEndSend, 关闭tcp")
 				userEndQuery <- any
 				return
 			}
-
 		} else {
 			count, err := send(sigpkg)
 			if err != nil {
@@ -127,11 +134,11 @@ func sendTask() {
 				fmt.Println("关闭tcp")
 				userEndQuery <- any // 发送信号：用户停止查询
 				return
-			case <-userChangeQuerySigFolder:
-				logrus.Info("收到信号：切换信号文件夹标志, 修改flag")
-				if i+1 < len(droneObjList) && sigFolderPathList[i] == sigFolderPathList[i+1] { // 不加这个，数组越界
-					changeFolderFlag = true
-				}
+				// case <-userChangeQuerySigFolder:
+				// 	logrus.Info("收到信号：切换信号文件夹标志, 修改flag")
+				// 	if i+1 < len(droneObjList) && sigFolderPathList[i] == sigFolderPathList[i+1] { // 不加这个，数组越界
+				// 		changeFolderFlag = true
+				// 	}
 			}
 		}
 	}

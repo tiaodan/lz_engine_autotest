@@ -1,3 +1,0 @@
-要查询的飞机id, 查询到的飞机, 查询结果(有id并且频率误差<50)-有没有(true/false), 查询结果(有id并且频率相等)-有没有(true/false), 信号文件夹路径, 当前时间(用于计算总时间)
-{YUNEEC Q500 5745000 00e05dc127ee}, [{YUNEEC Q500 5745000 00e05dc127ee}], true, true, C:\A_software\xinhao\xinhao-zhongzhuan\YUNEEC\Yuneec_Q500_5745, 2024-12-06 10:14:36.8649782 +0800 CST m=+116.914163101 
-683069 +0800 CST m=+112.917491801 

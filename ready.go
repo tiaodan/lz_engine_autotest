@@ -141,6 +141,9 @@ func setVar() {
 	err = viper.WriteConfig() // 写到配置文件里
 	errorPanic(err)
 
+	changeFolderFlag = false // 换文件夹标志 = false
+	changeFolderFlagNum = 0
+
 	// 打印变量
 	logrus.Debug("全局变量 startTime (程序开始时间)= ", startTime)
 	logrus.Debug("全局变量 startTimeStr (查程序开始时间str)= ", startTimeStr)
