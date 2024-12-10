@@ -143,12 +143,21 @@ func checkAlgorithmWhereQueryResult(boolResultDroneNameEqualList []string, boolR
 	// 判断query excel 每一行的数据
 	errorReason := "" // 异常内容
 	// 检查机型名称是否匹配
+	droneNameNotEqualNum := 0
 	for index, boolResultDroneNameEqual := range boolResultDroneNameEqualList {
 		if boolResultDroneNameEqual == "TRUE" && (boolResultNoMistakeList[index] == "TRUE" || boolResultHasMistakeList[index] == "TRUE") {
 			return true, errorReason
 		}
+		// 用于写 errorReason
+		if boolResultDroneNameEqual == "FALSE" {
+			droneNameNotEqualNum += 1
+		}
 	}
-	errorReason = "id不匹配, 或者频率误差<10M"
+	if droneNameNotEqualNum == len(boolResultDroneNameEqualList) {
+		errorReason = "机型不匹配"
+	} else {
+		errorReason = "或者频率误差<10M"
+	}
 	return false, errorReason
 
 	/* // 原先的写法，有问题，是判断列表只有要true,就按true来算。而不是按每行判断的

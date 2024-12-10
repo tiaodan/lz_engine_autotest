@@ -135,14 +135,16 @@ func queryTask() {
 			writeQueryExcel(currentQueryTargetDrone, droneList, queryResultHasMistake, queryResultNoMistake, currentSigDirPath, currentTime, droneNameIsEqual) // 最早的参数-3个,// 表头: 时间, 飞机, 时间戳, 要查询的飞机id, 查询结果-有没有(true/ false)
 			writeQuery2Txt(currentQueryTargetDrone, droneList, queryResultHasMistake, queryResultNoMistake, currentSigDirPath, currentTime)                    // 最早的参数-3个,// 表头: 时间, 飞机, 时间戳, 要查询的飞机id, 查询结果-有没有(true/ false)
 			// v0.0.0.1 为了提高效率新增，一旦判断 queryResultNoMistake==true 或者queryResultNoMistake==false && queryResultHasMistake== true了，就不继续查了。发送个信号
-			// if droneNameIsEqual && (queryResultNoMistake || queryResultHasMistake) && changeFolderFlagNum == 0 { // 如果有问题，用这个
-			if droneNameIsEqual && (queryResultNoMistake || queryResultHasMistake) { // 切换文件夹期间，查到数据，会影响文件夹切换逻辑
+			// 最新逻辑，发一次信号就好了，不多发信号
+			if droneNameIsEqual && (queryResultNoMistake || queryResultHasMistake) && changeFolderFlagNum == 0 { // 如果有问题，用这个
+				// if droneNameIsEqual && (queryResultNoMistake || queryResultHasMistake) { // 切换文件夹期间，查到数据，会影响文件夹切换逻辑
 				logrus.Info("查询到正确数据, queryResultNoMistake==true, 发送信号: 切换文件夹")
 				// userEndQuery <- any // 发送信号：用户停止当此查询 - 发这个信号不对，只能查1个
 				// userEndSend <- any // 发送信号：用户停止当此查询 - 发这个信号也不对，只能查1个
 				// userChangeQuerySigFolder <- any // 发送信号：换信号文件夹
 				changeFolderFlag = true
-				changeFolderFlagNum += 1
+				changeFolderFlagNum = 1
+				// changeFolderFlagNum += 1
 				logrus.Infof("切换信号文件夹标志 changeFolderFlag =%v, changeFolderFlagNum=%v", changeFolderFlag, changeFolderFlagNum)
 			}
 
