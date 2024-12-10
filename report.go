@@ -144,6 +144,8 @@ func checkAlgorithmWhereQueryResult(boolResultDroneNameEqualList []string, boolR
 	errorReason := "" // 异常内容
 	// 检查机型名称是否匹配
 	droneNameNotEqualNum := 0
+	boolResultNoMistakeNum := 0
+	boolResultHasMistakeNum := 0
 	for index, boolResultDroneNameEqual := range boolResultDroneNameEqualList {
 		if boolResultDroneNameEqual == "TRUE" && (boolResultNoMistakeList[index] == "TRUE" || boolResultHasMistakeList[index] == "TRUE") {
 			return true, errorReason
@@ -152,9 +154,17 @@ func checkAlgorithmWhereQueryResult(boolResultDroneNameEqualList []string, boolR
 		if boolResultDroneNameEqual == "FALSE" {
 			droneNameNotEqualNum += 1
 		}
+		if boolResultNoMistakeList[index] == "FALSE" {
+			boolResultNoMistakeNum += 1
+		}
+		if boolResultHasMistakeList[index] == "FALSE" {
+			boolResultHasMistakeNum += 1
+		}
 	}
 	if droneNameNotEqualNum == len(boolResultDroneNameEqualList) {
 		errorReason = "机型不匹配"
+	} else if boolResultNoMistakeNum == len(boolResultNoMistakeList) && boolResultHasMistakeNum == len(boolResultHasMistakeList) {
+		errorReason = "id不匹配"
 	} else {
 		errorReason = "或者频率误差<10M"
 	}
