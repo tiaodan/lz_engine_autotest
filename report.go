@@ -140,21 +140,30 @@ func checkAlgorithmWhereQueryResult(boolResultDroneNameEqualList []string, boolR
 	logrus.Info("report检测算法, 无误差结果 boolResultNoMistakeList= ", boolResultNoMistakeList)
 	logrus.Info("report检测算法, 有误差结果 boolResultHasMistakeList= ", boolResultHasMistakeList)
 
+	// 判断query excel 每一行的数据
+	errorReason := "" // 异常内容
+	// 检查机型名称是否匹配
+	for index, boolResultDroneNameEqual := range boolResultDroneNameEqualList {
+		if boolResultDroneNameEqual == "TRUE" && (boolResultNoMistakeList[index] == "TRUE" || boolResultHasMistakeList[index] == "TRUE") {
+			return true, errorReason
+		}
+	}
+	errorReason = "id不匹配, 或者频率误差<10M"
+	return false, errorReason
+
+	/* // 原先的写法，有问题，是判断列表只有要true,就按true来算。而不是按每行判断的
 	errorReason := "" // 异常内容
 	nameMatch := false
 	noMistakeMatch := false
 	hasMistakeMatch := false
 
 	// 检查机型名称是否匹配
-	for _, boolResultDroneNameEqual := range boolResultDroneNameEqualList {
+	for i, boolResultDroneNameEqual := range boolResultDroneNameEqualList {
 		if boolResultDroneNameEqual == "TRUE" {
 			nameMatch = true
 			break
 		}
 	}
-	// if !nameMatch {
-	// 	errorReason = "机型名称不符"
-	// }
 
 	// 检查至少一个 boolResultNoMistake 为 true
 	for _, boolResultNoMistake := range boolResultNoMistakeList {
@@ -184,4 +193,5 @@ func checkAlgorithmWhereQueryResult(boolResultDroneNameEqualList []string, boolR
 	}
 
 	return false, errorReason
+	*/
 }

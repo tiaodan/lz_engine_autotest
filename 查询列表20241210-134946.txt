@@ -1,0 +1,4 @@
+要查询的飞机id, 查询到的飞机, 查询结果(有id并且频率误差<50)-有没有(true/false), 查询结果(有id并且频率相等)-有没有(true/false), 信号文件夹路径, 当前时间(用于计算总时间)
+{FEIMA F1000 841512 202285987}, [], false, false, C:\A_software\xinhao\xinhao-zhongzhuan\多个信号\FEIMA\ZHUIFENG_F1000\rcdrone, 2024-12-10 13:50:25.1078903 +0800 CST m=+39.266932501 
+4 +0800 CST m=+33.261041601 
+83612 +0800 CST m=+7.267403401 

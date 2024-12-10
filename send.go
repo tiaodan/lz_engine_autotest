@@ -81,23 +81,29 @@ func sendTask() {
 			}
 			}
 		*/
-		if sigpkg != "[换文件夹]" && changeFolderFlag && changeFolderFlagNum == 1 { // 切换文件夹消息数量==1时才认
+		logrus.Infof("index=%v, 切换信号文件夹标志 changeFolderFlag =%v, changeFolderFlagNum=%v", i, changeFolderFlag, changeFolderFlagNum)
+		if sigpkg != "[换文件夹]" && changeFolderFlag && changeFolderFlagNum == 1 { // 切换文件夹消息数量==1时才认，只认收到的第一条消息
 			logrus.Infof("index=%v, 切换信号文件夹标志=true, 跳过当前循环, sig=%v", i, sigpkg)
 			continue
-		} else {
-			changeFolderFlagNum = 0 // 重置
 		}
+		// else {
+		// 	changeFolderFlagNum = 0 // 重置
+		// }
 
 		// copy过来的代码
 		fmt.Printf("发送信号, index = %v, tasklist= %v \n", i, sigpkg)
 		logrus.Infof("发送信号, index = %v, tasklist= %v ", i, sigpkg)
 		if sigpkg == "[换文件夹]" {
-			// writeSendExcel(i, "[换文件夹]", time.Now()) //
-			if i+1 < len(droneObjList) { // 不加这个，数组越界
-				// currentQueryTargetDrone = droneObjList[i+1] // 当前飞机，用于查询列表excel用  - 这样写，在查询等待的时间里，还是当前飞机=下一个飞机了
-				// currentSigDirPath = sigFolderPathList[i+1]  // 当前信号文件夹路径  - 这样写，在查询等待的时间里，还是当前飞机=下一个飞机了
-				changeFolderFlag = false // 标志重置
-			}
+			logrus.Infof("index=%v, 【换文件夹】切换信号文件夹标志 changeFolderFlag =%v, changeFolderFlagNum=%v", i, changeFolderFlag, changeFolderFlagNum)
+			/*
+				// 原来的写法
+					// writeSendExcel(i, "[换文件夹]", time.Now()) //
+					if i+1 < len(droneObjList) { // 不加这个，数组越界
+						// currentQueryTargetDrone = droneObjList[i+1] // 当前飞机，用于查询列表excel用  - 这样写，在查询等待的时间里，还是当前飞机=下一个飞机了
+						// currentSigDirPath = sigFolderPathList[i+1]  // 当前信号文件夹路径  - 这样写，在查询等待的时间里，还是当前飞机=下一个飞机了
+						changeFolderFlag = false // 标志重置
+					}
+			*/
 			fmt.Println("[换文件夹]，等待", cdFolderInterval, "秒后发送")
 			logrus.Info("[换文件夹]，等待", cdFolderInterval, "秒后发送")
 			logrus.Info("[换文件夹]，等待期间, 当前飞机currentDrone= ", currentQueryTargetDrone)
@@ -108,6 +114,9 @@ func sendTask() {
 					currentQueryTargetDrone = droneObjList[i+1] // 当前飞机，用于查询列表excel用 - 这样写，在查询等待的时间里，还是当前飞机，而不是下一个飞机了
 					currentSigDirPath = sigFolderPathList[i+1]
 				}
+				// 等待实际结束后，再重置变量。 代码放这里，解决：切换文件夹期间，查到数据，会影响文件夹切换逻辑
+				changeFolderFlagNum = 0  // 重置
+				changeFolderFlag = false // 标志重置
 			case <-userEndSend: // 匹配到信号，用户终止发送
 				connTCP.Close()
 				fmt.Println("sigpkg == [换文件夹】分支, userEndSend, 关闭tcp")
