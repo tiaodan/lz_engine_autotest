@@ -23,16 +23,16 @@ import (
 // 初始化
 // 声明全局变量 sigpkgList 为字符串切片，preDirName 和 nowDirName 为字符串
 var (
-	sigpkgList                = make([]string, 0, 1000) // 信号采集列表
-	droneObjList              = make([]Drone, 0, 1000)  // 目标飞机列表，与 sigpkgList信号采集列表 一一对应
-	sigFolderPathList         = make([]string, 0, 1000) // 信号文件夹列表，与 sigpkgList信号采集列表 一一对应
-	preSigDirPath             = ""                      // 之前信号包目录路径
-	nowSigDirPath             = ""                      // 现在信号包目录路径
-	currentSigDirPath         = ""                      // 当前信号包目录路径
-	currentQueryTargetDrone   Drone                     // 当前查询目标飞机,查的是 信号包里的:机型.txt
-	currentQueryTargetDroneId = "nil"                   // 当前无人机id
-	currentDirSigNum          = 0                       // 当前目录，信号包数量
-	currentSigCount           = 0                       // 当前查了几个信号
+	sigpkgList                 = make([]string, 0, 1000) // 信号采集列表
+	droneObjList               = make([]Drone, 0, 1000)  // 目标飞机列表，与 sigpkgList信号采集列表 一一对应
+	sigFolderPathList          = make([]string, 0, 1000) // 信号文件夹列表，与 sigpkgList信号采集列表 一一对应
+	preSigDirPath              = ""                      // 之前信号包目录路径
+	nowSigDirPath              = ""                      // 现在信号包目录路径
+	currentSigDirPath          = ""                      // 当前信号包目录路径
+	currentQueryTargetDrone    Drone                     // 当前查询目标飞机,查的是 信号包里的:机型.txt
+	currentQueryTargetDroneIds = []string{}              // 当前无人机id 数组列表, 可以是多个
+	currentDirSigNum           = 0                       // 当前目录，信号包数量
+	currentSigCount            = 0                       // 当前查了几个信号
 )
 
 /*
@@ -88,6 +88,7 @@ func readLowerConfig(configName string, configSuffix string, configRelPath strin
 	queryDroneInterval = viper.GetInt("signal.querydroneinterval") // 查询无人机间隔时间:秒
 	logLevel = viper.GetString("log.loglevel")                     // 日志级别 只认：debug 、info 、 error，不区分大小写。写其它的都按debug处理
 	startTimeStr = viper.GetString("time.starttime")               // 开始时间str
+	mistakeFreqConfig = viper.GetInt("query.mistakefreq")          // 查询无人机频率 最大误差值 单位：Mhz
 
 	// 打印配置
 	logrus.Info("配置 devIp (设备ip)= ", devIp)
@@ -359,9 +360,19 @@ func loopDir(dirPath string) {
 				if err != nil {
 					logrus.Error("读取文件id.txt 内容出错:", err)
 				}
-				currentQueryTargetDroneId = strings.TrimSpace(string(content))
-				currentQueryTargetDrone.Id = strings.TrimSpace(string(content))
-				logrus.Info("匹配到id.txt, currentSigPkgDroneId = ", currentQueryTargetDroneId)
+				// 读取id.txt 多个id
+				// 使用 Split 函数按照 "/" 分割字符串
+				contentTrimSpace := strings.TrimSpace(string(content))             // 去除前后空格
+				currentQueryTargetDroneIds := strings.Split(contentTrimSpace, "/") // 通过/ 分割
+
+				// 如果切片的长度为1，说明原来的字符串中没有 "/"
+				if len(currentQueryTargetDroneIds) == 1 {
+					// 将 content 添加到切片的第一个元素位置
+					currentQueryTargetDroneIds = []string{contentTrimSpace}
+				}
+
+				currentQueryTargetDrone.Id = currentQueryTargetDroneIds
+				logrus.Info("匹配到id.txt, currentSigPkgDroneId = ", currentQueryTargetDroneIds)
 			}
 			loopDir(fileAbsPath)
 		} else { // 如果是文件，解析它、

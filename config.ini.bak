@@ -37,3 +37,8 @@ logLevel=INfo
 [time]
 # 开始时间
 starttime=
+
+# 查询相关
+[query]
+# 频率误差值, 单位：Mhz ，10M就能处理90%的机型
+mistakeFreq=20

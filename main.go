@@ -34,9 +34,9 @@ type Any interface{}
 
 // 飞机结构体
 type Drone struct {
-	Name     string `json:"name"`
-	FreqList int    `json:"freqList"`
-	Id       string `json:"id"`
+	Name     string   `json:"name"`
+	FreqList int      `json:"freqList"`
+	Id       []string `json:"id"` // 改成[], 为了能识别id.txt 中多个id
 }
 
 // 全局变量
@@ -51,6 +51,7 @@ var (
 	sigPkgSendInterval int    // 发送间隔时间:毫秒/MB,按信号包大小
 	cdFolderInterval   int    // 换文件夹等待时间:秒
 	queryDroneInterval int    // 查询无人机间隔时间:秒
+	mistakeFreqConfig  int    // 查询无人机频率 最大误差值 单位：Mhz 配置文件中写的
 
 	// 文件相关
 	preSendHistoryFilePath      string         // 预发送记录文件 路径
@@ -171,12 +172,41 @@ func todoList() {
 	logrus.Info("----------- 最后一个切换文件夹, 会消耗10秒时间，如何判断最后一个[换文件夹], 然后就不time.sleep了")
 	logrus.Info("----------- 对比机型名称, 要不区分名字大小写")
 	logrus.Info("----------- HUBSAN_ZINOpro_5825 比如这个机型, 有时候检测不到5825批量, 是别的频段,误差>10M, 思考检测不到, 循环发送2次!")
+	logrus.Info("----------- 每个版本,机型名称不同。比如老版本{DJI Phantom4/4Pro 2406500 60601f09c0b0} 最新：{DJI Phantom4/4Pro/Inspire2 2406500 60601f09c0b0}, 这种情况如何处理？是否弄个文件夹, 专门放配置文件, 机型txt文件?每个版本,建一个机型库文件，或者一个表格也可以。像一种关联方法")
+	logrus.Info("----------- 查询列表, 判断有误差、无误差true 好像有问题，是否加一列id是否相等? ")
+	logrus.Info("----------- 回放信号时，有实体飞机,比如mavic 2, 回放mavic2 会识别不到 O2 机型名称的信号")
+	logrus.Info("----------- 多报, 可以回放dji o2信号")
+	logrus.Info("----------- DJI最后再测 , 可能会影响其它信号")
+	logrus.Info("----------- id.txt 多个id, 查询时也能识别。id.txt中用/区分. 比如 753341352/abdce123")
+	logrus.Info("----------- 机型.txt 多个机型，查询时也能识别")
+	logrus.Info("----------- DJI重命名文件夹, 让该文件夹最后回放。真实情况, 从公司角度触发, 是否DJI的飞机要首先回放?")
+
+	logrus.Info("----------- 用编译好的版本，测试 C:/A_software/xinhao/xinhao-ok/jinjuli-测过-完全通过 所有信号, 完成时, 会报错。如下: 。并且会少待发送列表excel文件.文件夹目录: 单个信号, 多个信号,DJI 。原因是: 查询列表excel 空了")
+	/*
+		time="2024-12-11T17:19:37+08:00" level=info msg="--------------- report 环境 start ---------------"
+		time="2024-12-11T17:19:37+08:00" level=info msg="配置 devIp (设备ip)= 192.168.84.179"
+		time="2024-12-11T17:19:37+08:00" level=info msg="配置 sigDir (信号包根目录)= C:\\A_software\\xinhao\\xinhao-ok\\jinjuli-测过-完全通过"
+		time="2024-12-11T17:19:37+08:00" level=info msg="配置 sigPkgSendInterval (发送间隔时间:毫秒/MB,按信号包大小)= 100"
+		time="2024-12-11T17:19:37+08:00" level=info msg="配置 cdFolderInterval (换文件夹等待时间:秒)= 9"
+		time="2024-12-11T17:19:37+08:00" level=info msg="配置 queryDroneInterval (查询无人机间隔时间:秒)= 2"
+		time="2024-12-11T17:19:37+08:00" level=info msg="配置 logLevel (日志级别)= info"
+		time="2024-12-11T17:19:37+08:00" level=info msg="配置 开始时间str = 20241211-154922"
+		panic: runtime error: index out of range [5] with length 0
+
+		goroutine 1 [running]:
+		main.createReport()
+		        C:/Users/root1/Desktop/lz_engine_autotest/report.go:60 +0x1872
+		main.report()
+		        C:/Users/root1/Desktop/lz_engine_autotest/main.go:306 +0x231
+		main.main()
+		        C:/Users/root1/Desktop/lz_engine_autotest/main.go:228 +0x5b9
+	*/
+	logrus.Info("----------- 所有的打印生成日志, 生成log, 用于后续定位问题")
 	logrus.Info("----------- 待办事项 end")
 }
 
 // 程序入口
 func main() {
-	// ready() // 临时测试用的
 	// todoList() // 待办事项，后面删
 
 	reader := bufio.NewReader(os.Stdin)
@@ -227,6 +257,7 @@ func main() {
 	default:
 		logrus.Info("无效输入，请重新输入")
 	}
+
 }
 
 // 功能 ready 流程
@@ -282,7 +313,7 @@ func feed() {
 
 // 功能 report 流程
 func report() {
-	logrus.Info("--------------- report 环境 start ---------------")
+	logrus.Info("--------------- report 阶段 start ---------------")
 	// 读取配置
 	readLowerConfig("config", "ini", ".")
 
@@ -299,7 +330,7 @@ func report() {
 	// queryHistroyFilePath = "查询列表20241204-101626.xlsx"                   // 注释：临时测试report模块时用，属于测试代码
 	// queryHistroyFile, err = createOrOpenExcelFile(queryHistroyFilePath) // 注释：临时测试report模块时用，属于测试代码
 	createReport()
-	logrus.Info("--------------- report 环境 end ---------------")
+	logrus.Info("--------------- report 阶段 end ---------------")
 }
 
 // 删除当前目录 xlsx文件, txt文件

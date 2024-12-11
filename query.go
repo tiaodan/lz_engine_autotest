@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
+	"github.com/thoas/go-funk"
 )
 
 type queryDrone map[string]Any
@@ -108,9 +109,11 @@ func queryTask() {
 			droneList := []Drone{}
 			// 制作查询飞机列表
 			for _, v := range list {
+				ids := []string{}
 				id := v["id"].(string)
+				ids = append(ids, id)
 				s := v["name"].(string)
-				d := Drone{Id: id, Name: s, FreqList: 0}
+				d := Drone{Id: ids, Name: s, FreqList: 0}
 				f := v["seen_sensor"].([]interface{})
 				// logrus.Debug("查到的 s = ", s)
 				// logrus.Debug("查到的 d = ", d)
@@ -213,26 +216,57 @@ func SendRequestByGraphql(url string, method string, graphqlStr string) string {
 // 参数:已查到的飞机列表, 目标飞机
 // 频率单位 Hz 2462000 - 2452000 = 10000
 func checkAlgorithmWhereFreqHasMistake(queriedDrones []Drone, targetDrone Drone) bool {
+
+	// 只有一个id的写法
+	// for _, queriedDrone := range queriedDrones {
+	// 	// 判断查询到的飞机列表,id是否相等
+	// 	if queriedDrone.Id == targetDrone.Id {
+	// 		// 判断频率,误差是否 <=10 Mhz
+	// 		freqMistake := math.Abs(float64(queriedDrone.FreqList) - float64(targetDrone.FreqList))
+	// 		if freqMistake <= 10000 {
+	// 			return true
+	// 		}
+	// 	}
+	// }
+	// return false
+
+	// 多个id的写法 funk.Contains() arg1: list arg2: string (要是是个数组，不行)
 	for _, queriedDrone := range queriedDrones {
 		// 判断查询到的飞机列表,id是否相等
-		if queriedDrone.Id == targetDrone.Id {
+		if funk.Contains(targetDrone.Id, queriedDrone.Id[0]) {
 			// 判断频率,误差是否 <=10 Mhz
 			freqMistake := math.Abs(float64(queriedDrone.FreqList) - float64(targetDrone.FreqList))
-			if freqMistake <= 10000 {
+			if freqMistake <= float64(mistakeFreqConfig*1000) {
 				return true
 			}
 		}
 	}
 	return false
+
 }
 
 // 检测算法-频率可以有误差 (频率误差<=10 Mhz)
 // 参数:已查到的飞机列表, 目标飞机
 // 频率单位 Hz 2462000 - 2452000 = 10000
 func checkAlgorithmWhereFreqNoMistake(queriedDrones []Drone, targetDrone Drone) bool {
+	/*
+		//  只有一个id的写法
+			for _, queriedDrone := range queriedDrones {
+				// 判断查询到的飞机列表,id是否相等
+				if queriedDrone.Id == targetDrone.Id {
+					// 判断频率,误差是否 <=0 Mhz
+					if queriedDrone.FreqList == targetDrone.FreqList {
+						return true
+					}
+				}
+			}
+			return false
+	*/
+
+	// 多个id的写法 funk.Contains() arg1: list arg2: string (要是是个数组，不行)
 	for _, queriedDrone := range queriedDrones {
 		// 判断查询到的飞机列表,id是否相等
-		if queriedDrone.Id == targetDrone.Id {
+		if funk.Contains(targetDrone.Id, queriedDrone.Id[0]) {
 			// 判断频率,误差是否 <=0 Mhz
 			if queriedDrone.FreqList == targetDrone.FreqList {
 				return true
@@ -268,7 +302,7 @@ func writeQueryExcel(preQueryDrone Drone, res []Drone, queryResultHasMistake boo
 
 	// 写入表头
 	// 表头: 时间, 飞机, 时间戳, 要查询的飞机id, 查询结果-有没有(true/ false), 信号文件夹路径
-	err = queryHistroyFile.SetSheetRow("sheet1", "A1", &[]Any{"要查询的飞机id", "查询到的飞机", "查询结果(有id并且频率误差<50)-有没有(true/false)", "查询结果(有id并且频率相等)-有没有(true/false)", "信号文件夹路径", "当前时间(用于计算总时间)", "机型名称是否相等"})
+	err = queryHistroyFile.SetSheetRow("sheet1", "A1", &[]Any{"要查询的飞机id", "查询到的飞机", "查询结果(有id并且频率误差<10)-有没有(true/false)", "查询结果(有id并且频率相等)-有没有(true/false)", "信号文件夹路径", "当前时间(用于计算总时间)", "机型名称是否相等"})
 
 	// 写入行内容
 	queryExcellen++
@@ -286,13 +320,13 @@ func writeQueryExcel(preQueryDrone Drone, res []Drone, queryResultHasMistake boo
 // 现在的参数-?个,// 表头: 要查询的飞机id, 查询到的飞机, 查询结果(带误差)-有没有(true/ false), 查询结果(无误差)-有没有(true/ false), 信号文件夹路径,查询时间(用于统计总用时)
 func writeQuery2Txt(preQueryDrone Drone, res []Drone, queryResultHasMistake bool, queryResultNoMistake bool, sigFolderPath string, currentTime time.Time) {
 	// logrus.Debug("写入查询结果到txt文件, 写入内容 == ", preQueryDrone, res, queryResultHasMistake, queryResultNoMistake)
-	logrus.Info("创建查询txt文件")
+	// logrus.Info("创建查询txt文件")
 	// 1. 创建或者打开文件
 	queryHistroyTxtFile, err = createOrOpenTxtFile(queryHistroyFileTxtPath)
 	errorPanic(err)
 
 	// 5. 创建表头
-	_, err = queryHistroyTxtFile.WriteString("要查询的飞机id, 查询到的飞机, 查询结果(有id并且频率误差<50)-有没有(true/false), 查询结果(有id并且频率相等)-有没有(true/false), 信号文件夹路径, 当前时间(用于计算总时间)\n")
+	_, err = queryHistroyTxtFile.WriteString("要查询的飞机id, 查询到的飞机, 查询结果(有id并且频率误差<10)-有没有(true/false), 查询结果(有id并且频率相等)-有没有(true/false), 信号文件夹路径, 当前时间(用于计算总时间)\n")
 	if err != nil {
 		logrus.Error("写入查询txt文件表头失败, err=", err)
 	}

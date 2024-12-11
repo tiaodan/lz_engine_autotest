@@ -5,6 +5,7 @@ go 1.22.5
 require (
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/viper v1.19.0
+	github.com/thoas/go-funk v0.9.3
 	github.com/xuri/excelize/v2 v2.9.0
 )
 

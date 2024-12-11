@@ -164,7 +164,7 @@ func checkAlgorithmWhereQueryResult(boolResultDroneNameEqualList []string, boolR
 	if droneNameNotEqualNum == len(boolResultDroneNameEqualList) {
 		errorReason = "机型不匹配"
 	} else if boolResultNoMistakeNum == len(boolResultNoMistakeList) && boolResultHasMistakeNum == len(boolResultHasMistakeList) {
-		errorReason = "id不匹配"
+		errorReason = "id不匹配, 或者频率误差<10M"
 	} else {
 		errorReason = "或者频率误差<10M"
 	}
