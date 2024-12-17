@@ -215,7 +215,7 @@ func SendRequestByGraphql(url string, method string, graphqlStr string) string {
 // 检测算法-频率可以有误差 (频率误差<=10 Mhz)
 // 参数:已查到的飞机列表, 目标飞机
 // 频率单位 Hz 2462000 - 2452000 = 10000
-func checkAlgorithmWhereFreqHasMistake(queriedDrones []Drone, targetDrone Drone) bool {
+func checkAlgorithmWhereFreqHasMistake(queriedDrones []Drone, targetDrones []Drone) bool {
 
 	// 只有一个id的写法
 	// for _, queriedDrone := range queriedDrones {
@@ -231,13 +231,28 @@ func checkAlgorithmWhereFreqHasMistake(queriedDrones []Drone, targetDrone Drone)
 	// return false
 
 	// 多个id的写法 funk.Contains() arg1: list arg2: string (要是是个数组，不行)
-	for _, queriedDrone := range queriedDrones {
-		// 判断查询到的飞机列表,id是否相等
-		if funk.Contains(targetDrone.Id, queriedDrone.Id[0]) {
-			// 判断频率,误差是否 <=10 Mhz
-			freqMistake := math.Abs(float64(queriedDrone.FreqList) - float64(targetDrone.FreqList))
-			if freqMistake <= float64(mistakeFreqConfig*1000) {
-				return true
+	if len(targetDrones) == 1 { // targetDrone 数组只有一个数据
+		for _, queriedDrone := range queriedDrones {
+			// 判断查询到的飞机列表,id是否相等
+			if funk.Contains(targetDrones[0].Id, queriedDrone.Id[0]) {
+				// 判断频率,误差是否 <=10 Mhz
+				freqMistake := math.Abs(float64(queriedDrone.FreqList) - float64(targetDrones[0].FreqList))
+				if freqMistake <= float64(mistakeFreqConfig*1000) {
+					return true
+				}
+			}
+		}
+	} else if len(targetDrones) > 1 {
+		for _, queriedDrone := range queriedDrones {
+			for _, targetDrone := range targetDrones {
+				// 判断查询到的飞机列表,id是否相等
+				if funk.Contains(targetDrone.Id, queriedDrone.Id[0]) {
+					// 判断频率,误差是否 <=10 Mhz
+					freqMistake := math.Abs(float64(queriedDrone.FreqList) - float64(targetDrone.FreqList))
+					if freqMistake <= float64(mistakeFreqConfig*1000) {
+						return true
+					}
+				}
 			}
 		}
 	}
@@ -248,7 +263,7 @@ func checkAlgorithmWhereFreqHasMistake(queriedDrones []Drone, targetDrone Drone)
 // 检测算法-频率可以有误差 (频率误差<=10 Mhz)
 // 参数:已查到的飞机列表, 目标飞机
 // 频率单位 Hz 2462000 - 2452000 = 10000
-func checkAlgorithmWhereFreqNoMistake(queriedDrones []Drone, targetDrone Drone) bool {
+func checkAlgorithmWhereFreqNoMistake(queriedDrones []Drone, targetDrones []Drone) bool {
 	/*
 		//  只有一个id的写法
 			for _, queriedDrone := range queriedDrones {
@@ -264,12 +279,26 @@ func checkAlgorithmWhereFreqNoMistake(queriedDrones []Drone, targetDrone Drone) 
 	*/
 
 	// 多个id的写法 funk.Contains() arg1: list arg2: string (要是是个数组，不行)
-	for _, queriedDrone := range queriedDrones {
-		// 判断查询到的飞机列表,id是否相等
-		if funk.Contains(targetDrone.Id, queriedDrone.Id[0]) {
-			// 判断频率,误差是否 <=0 Mhz
-			if queriedDrone.FreqList == targetDrone.FreqList {
-				return true
+	if len(targetDrones) == 1 { // targetDrone 数组只有一个数据
+		for _, queriedDrone := range queriedDrones {
+			// 判断查询到的飞机列表,id是否相等
+			if funk.Contains(targetDrones[0].Id, queriedDrone.Id[0]) {
+				// 判断频率,误差是否 <=0 Mhz
+				if queriedDrone.FreqList == targetDrones[0].FreqList {
+					return true
+				}
+			}
+		}
+	} else if len(targetDrones) > 1 {
+		for _, queriedDrone := range queriedDrones {
+			for _, targetDrone := range targetDrones {
+				// 判断查询到的飞机列表,id是否相等
+				if funk.Contains(targetDrone.Id, queriedDrone.Id[0]) {
+					// 判断频率,误差是否 <=0 Mhz
+					if queriedDrone.FreqList == targetDrone.FreqList {
+						return true
+					}
+				}
 			}
 		}
 	}
@@ -278,11 +307,13 @@ func checkAlgorithmWhereFreqNoMistake(queriedDrones []Drone, targetDrone Drone) 
 
 // 检测算法-droneName 是否相等
 // 参数:已查到的飞机列表, 目标飞机
-func checkAlgorithmWhereDroneNameIsEqual(queriedDrones []Drone, targetDrone Drone) bool {
+func checkAlgorithmWhereDroneNameIsEqual(queriedDrones []Drone, targetDrones []Drone) bool {
 	for _, queriedDrone := range queriedDrones {
-		// 判断查询到的飞机列表,id是否相等
-		if queriedDrone.Name == targetDrone.Name {
-			return true
+		for _, targetDrone := range targetDrones {
+			// 判断查询到的飞机列表,id是否相等
+			if queriedDrone.Name == targetDrone.Name {
+				return true
+			}
 		}
 	}
 	return false
@@ -291,7 +322,7 @@ func checkAlgorithmWhereDroneNameIsEqual(queriedDrones []Drone, targetDrone Dron
 // func writeQueryExcel(ts string, res []Drone, t time.Time) {
 // 之前的参数-6个,// 表头: 时间, 飞机, 时间戳, 要查询的飞机id, 查询结果(带误差)-有没有(true/ false), 查询结果(无误差)-有没有(true/ false)
 // 现在的参数-?个,// 表头: 要查询的飞机id, 查询到的飞机, 查询结果(带误差)-有没有(true/ false), 查询结果(无误差)-有没有(true/ false), 信号文件夹路径,查询时间(用于统计总用时), 机型名称是否相等
-func writeQueryExcel(preQueryDrone Drone, res []Drone, queryResultHasMistake bool, queryResultNoMistake bool, sigFolderPath string, currentTime time.Time, droneNameIsEqual bool) {
+func writeQueryExcel(preQueryDrone []Drone, res []Drone, queryResultHasMistake bool, queryResultNoMistake bool, sigFolderPath string, currentTime time.Time, droneNameIsEqual bool) {
 	logrus.Debug("写入查询excel, 写入内容 == ", preQueryDrone, res, queryResultHasMistake, queryResultNoMistake)
 	// 打开文件,不存在就创建
 	queryHistroyFile, err = createOrOpenExcelFile(queryHistroyFilePath)
@@ -318,7 +349,7 @@ func writeQueryExcel(preQueryDrone Drone, res []Drone, queryResultHasMistake boo
 
 // 写入查询结果到txt文件
 // 现在的参数-?个,// 表头: 要查询的飞机id, 查询到的飞机, 查询结果(带误差)-有没有(true/ false), 查询结果(无误差)-有没有(true/ false), 信号文件夹路径,查询时间(用于统计总用时)
-func writeQuery2Txt(preQueryDrone Drone, res []Drone, queryResultHasMistake bool, queryResultNoMistake bool, sigFolderPath string, currentTime time.Time) {
+func writeQuery2Txt(preQueryDrone []Drone, res []Drone, queryResultHasMistake bool, queryResultNoMistake bool, sigFolderPath string, currentTime time.Time) {
 	// logrus.Debug("写入查询结果到txt文件, 写入内容 == ", preQueryDrone, res, queryResultHasMistake, queryResultNoMistake)
 	// logrus.Info("创建查询txt文件")
 	// 1. 创建或者打开文件

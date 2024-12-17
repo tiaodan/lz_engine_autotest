@@ -202,6 +202,8 @@ func todoList() {
 		        C:/Users/root1/Desktop/lz_engine_autotest/main.go:228 +0x5b9
 	*/
 	logrus.Info("----------- 所有的打印生成日志, 生成log, 用于后续定位问题")
+	logrus.Info("----------- 开2个回放cmd,遇到同一个信号，可能报错")
+	logrus.Info("----------- 只有1个信号, feed程序发不出信号。不知道是不是没有id原因? 因为待发送列表没东西")
 	logrus.Info("----------- 待办事项 end")
 }
 

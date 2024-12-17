@@ -245,10 +245,10 @@ func getSigpkgListFromPreSendHistoryFile(path string, sheetName string) []string
 2. sheetName 表名
 
 返回值：
-1. sigpkgList []string
+1. []Drone
 */
-func getQueryDroneFromPreSendHistoryFile(path string, sheetName string) []Drone {
-	droneList := make([]Drone, 0) // 重置目标飞机列表为空
+func getQueryDroneFromPreSendHistoryFile(path string, sheetName string) [][]Drone {
+	droneList := make([][]Drone, 0) // 重置目标飞机列表为空. 二维数组
 	file, err := createOrOpenExcelFile(path)
 	logrus.Debugf("func=getQueryDroneFromPreSendHistoryFile(), path===== %v, sheetName=%v", path, sheetName)
 	if err != nil {
@@ -272,7 +272,7 @@ func getQueryDroneFromPreSendHistoryFile(path string, sheetName string) []Drone 
 		logrus.Debug("value==========", value)
 		// 可能会获取到空数据
 		errorPanic(err)
-		var droneObj Drone
+		var droneObj []Drone
 		err = json.Unmarshal([]byte(value), &droneObj)
 		errorPanic(err)
 
