@@ -42,3 +42,10 @@ starttime=
 [query]
 # 频率误差值, 单位：Mhz ，10M就能处理90%的机型
 mistakeFreq=20
+
+# 机型库相关
+[dronesDb]
+# 是否使用 机型库.xlsx 文件, 进行自动化测试。true: 根据 机型库.xlsx -> 生成 待发送列表；report阶段, 按照 机型库.xlsx 的机型列表，进行匹配
+droneDbEnable=true
+# 机型库文件路径
+dronesDbPath=C:\Users\root1\Desktop\无人机实测支持列表_2024_12_11.xlsx

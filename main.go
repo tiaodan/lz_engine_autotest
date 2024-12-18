@@ -18,6 +18,7 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -39,6 +40,24 @@ type Drone struct {
 	Id       []string `json:"id"` // 改成[], 为了能识别id.txt 中多个id
 }
 
+// 机型库 结构体
+type DroneDB struct {
+	Id                     []string `json:"id"`                     // ID
+	Manufacture            []string `json:"manufacture"`            // 厂商
+	Brand                  []string `json:"brand"`                  // 品牌
+	Model                  []string `json:"model"`                  // 型号
+	Protocol               []string `json:"protocol"`               // 协议
+	Subtype                []string `json:"subtype"`                // 子类型
+	FreqBand               []string `json:"freqBand"`               // 频段
+	Freq                   []string `json:"freq"`                   // 频率
+	SigFolderName          []string `json:"sigFolderName"`          // 信号文件夹名称(品牌-型号-频段-详细频率)
+	SigFolderPath          []string `json:"sigFolderPath"`          // 信号文件夹路径
+	SigFolderPathExist     []bool   `json:"sigFolderPathExist"`     // 信号文件夹路径是否存在
+	DroneTxt               []string `json:"droneTxt"`               // 机型.txt内容
+	DroneIdTxt             []string `json:"droneIdTxt"`             // id.txt内容
+	SigFolderPathRepeatNum []int    `json:"sigFolderPathRepeatNum"` // 信号文件夹路径重复数量
+}
+
 // 全局变量
 var (
 	err          error
@@ -52,6 +71,11 @@ var (
 	cdFolderInterval   int    // 换文件夹等待时间:秒
 	queryDroneInterval int    // 查询无人机间隔时间:秒
 	mistakeFreqConfig  int    // 查询无人机频率 最大误差值 单位：Mhz 配置文件中写的
+
+	// 配置-机型库相关
+	dronesDb       DroneDB // 机型库结构体
+	dronesDbEnable bool    // 是否根据机型库，进行自动化引擎测试
+	dronesDbPath   string  // 机型库路径
 
 	// 文件相关
 	preSendHistoryFilePath      string         // 预发送记录文件 路径
@@ -80,6 +104,7 @@ var (
 	logLevel            string // 日志级别
 	changeFolderFlag    bool   // 换文件夹标志
 	changeFolderFlagNum int    // 换文件夹标志 num
+
 )
 
 // 初始化，默认调用
@@ -204,6 +229,11 @@ func todoList() {
 	logrus.Info("----------- 所有的打印生成日志, 生成log, 用于后续定位问题")
 	logrus.Info("----------- 开2个回放cmd,遇到同一个信号，可能报错")
 	logrus.Info("----------- 只有1个信号, feed程序发不出信号。不知道是不是没有id原因? 因为待发送列表没东西")
+	logrus.Info("----------- rows.Next()。如何避免，获取到最后一条数据，下一行的空数据")
+	logrus.Info("----------- 配置里，如果文件夹下没有文件夹，ready阶段生成不了内容")
+	logrus.Info("----------- ubuntu 是否需要管理员权限，才能创建软连接，还没测试")
+	logrus.Info("----------- id。txt 要支持正则表达式，因为id有可能是随机的")
+	logrus.Info("----------- 要写单元测试")
 	logrus.Info("----------- 待办事项 end")
 }
 
@@ -278,11 +308,55 @@ func ready() {
 	logrus.Debug("设置变量（全局变量+局部变量）")
 	setVar()
 
-	// 生成预发送信号列表文件
-	logrus.Debug("生成预发送信号列表文件")
-	createPreSendHistoryFile(preSendHistoryFilePath)
-	// createPreSendHistoryFileHeaderTxt(preSendHistoryFileTxtPath) // txt文件表头
-	// createPreSendHistoryFileTxt(preSendHistoryFileTxtPath)       // txt文件,这个方法用不到，因为已经在上面写excel方法里createPreSendHistoryFile()，写了txt
+	// 判断配置文件-配置 dronesDbEnable
+	if !dronesDbEnable {
+		// 生成预发送信号列表文件
+		logrus.Debug("生成预发送信号列表文件")
+		createPreSendHistoryFile(preSendHistoryFilePath)
+		// createPreSendHistoryFileHeaderTxt(preSendHistoryFileTxtPath) // txt文件表头
+		// createPreSendHistoryFileTxt(preSendHistoryFileTxtPath)       // txt文件,这个方法用不到，因为已经在上面写excel方法里createPreSendHistoryFile()，写了txt
+	}
+
+	if dronesDbEnable {
+		/*
+			思路：
+			步骤：
+			1. 读取机型.xlsx文件，包含N列 （ID）（厂家）（品牌）（型号）（协议）（协议子类型）（频段）(详细频段) （信号文件夹名称）（信号文件夹路径)（信号文件夹是否存在) （机型.txt内容) （id.txt内容) (信号文件夹路径重复序号) 。
+			1）判断文件路径是否存在，写到xlsx文件中
+			2）判断文件是否打开，如果被别人打开了，提示关闭xlsx文件
+			3）写入 信号路径重复的 索引值，重复一个 +1
+			3）读取所有信息
+			2. 在本地目录，创建信号库的软链接文件 （直接剔除重复项）,信号
+
+			----- 所有逻辑，判断 dronesdbenable，不要影响原先的逻辑
+			3. 创建待发送列表
+			3. 回放信号
+			4. 判断结果：软链接接相同的情况下，如果有1个已经回放完了，其它都设置成相同的结果
+			5. 生成报告 （传统方式，生成一个列表。根据机型库.xlsx，会生成另一个列表）
+
+			报告 xlsx 加上索引，做一些dbutil操作。类似于操作db一样
+		*/
+		// 步骤1：读取 机型库文件
+		getRowsFromExcel(dronesDbPath, "机型库")
+		logrus.Info("机型库= ", dronesDb)
+		// 生成预发送信号列表文件
+		logrus.Debug("生成预发送信号列表文件")
+
+		// 步骤2：判断机型库内容：，并写到机型库文件里
+		checkDronesDbAndWrite2Excel()
+
+		// 步骤3：在本地目录，创建信号库的软链接文件 （直接剔除重复项）,信号。信号路径sigdir 改为 软链接目录
+		xinhaoTestPath := createFolderLink()
+
+		// 步骤4：把信号包总路径 改为 软连接的。不影响后续逻辑
+		sigDir = xinhaoTestPath
+
+		createPreSendHistoryFile(preSendHistoryFilePath)
+
+		// createPreSendHistoryFileHeaderTxt(preSendHistoryFileTxtPath) // txt文件表头
+		// createPreSendHistoryFileTxt(preSendHistoryFileTxtPath)       // txt文件,这个方法用不到，因为已经在上面写excel方法里createPreSendHistoryFile()，写了txt
+	}
+
 	logrus.Info("------------ ready 阶段 end")
 }
 
@@ -356,4 +430,62 @@ func deleteHistroyFile() {
 	if err != nil {
 		fmt.Println("遍历目录出错:", err)
 	}
+}
+
+/*
+功能：创建链接。级联创建目录，最后一个子目录，关联上信号文件夹
+参数： 这些参数从 dronesDb 对象里拿
+1. 品牌 brand string
+2. 型号 model string
+3. 频段 freqBand string
+4. 详细频率 freq string
+5. 最后子目录 folderName string 由 拼接而成：品牌-型号-频段-详细频率
+
+返回值：
+当前软连接信号总目录 sigDir string
+*/
+func createFolderLink() string {
+	// 获取当前目录的绝对路径
+	currentDir, err := os.Getwd()
+	if err != nil {
+		log.Fatalf("无法获取当前目录: %v", err)
+	}
+
+	// 先删除当前目录 xinhao-test目录
+	xinhaoTestPath := filepath.Join(currentDir, "xinhao-test")
+	os.RemoveAll(xinhaoTestPath)
+	if err != nil {
+		log.Fatalf("无法删除文件夹 xinhao-test : %v", err)
+	}
+
+	// 指定厂家、品牌、频段、频率 - 参数里都有了
+	for index, path := range dronesDb.SigFolderPath {
+		// 信号路径存在，且重复数=1 才创建链接
+		if dronesDb.SigFolderPathExist[index] && dronesDb.SigFolderPathRepeatNum[index] == 1 {
+			brand := dronesDb.Brand[index]
+			model := dronesDb.Model[index]
+			freqBand := dronesDb.FreqBand[index]
+			freq := dronesDb.Freq[index]
+			// 构建文件夹路径
+			folderName := brand + "-" + model + "-" + freqBand + "-" + freq
+			folderPath := filepath.Join(currentDir, "xinhao-test", brand, model, freqBand, freq)
+
+			// 创建子文件夹
+			err = os.MkdirAll(folderPath, 0755)
+			if err != nil {
+				log.Fatalf("无法创建子文件夹: %v", err)
+			}
+			// 给文件夹关联上
+			// 参数1： 被链接的文件 oldname string ; 参数2：链接 newname string
+			folderNamePath := filepath.Join(folderPath, folderName)
+			err = os.Symlink(path, folderNamePath)
+			if err != nil {
+				log.Fatalf("无法创建链接: %v", err)
+			}
+
+			logrus.Info("成功在当前目录 xinhao-test 下创建子文件夹:  ", folderPath)
+		}
+	}
+
+	return xinhaoTestPath
 }

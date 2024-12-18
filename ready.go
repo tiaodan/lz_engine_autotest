@@ -59,6 +59,8 @@ func readConfig(configName string, configSuffix string, configRelPath string) {
 	cdFolderInterval = viper.GetInt("signal.cdFolderInterval")     // 换文件夹等待时间:秒
 	queryDroneInterval = viper.GetInt("signal.queryDroneInterval") // 查询无人机间隔时间:秒
 	logLevel = viper.GetString("log.logLevel")                     // 日志级别 只认：debug 、info 、 error，不区分大小写。写其它的都按debug处理
+	dronesDbEnable = viper.GetBool("dronesdb.dronesdbenable")      // 是否启用机型库
+	dronesDbPath = viper.GetString("dronesdb.dronesdbpath")        // 机型库路径
 
 	// 打印配置
 	logrus.Info("配置 devIp (设备ip)= ", devIp)
@@ -67,6 +69,9 @@ func readConfig(configName string, configSuffix string, configRelPath string) {
 	logrus.Info("配置 cdFolderInterval (换文件夹等待时间:秒)= ", cdFolderInterval)
 	logrus.Info("配置 queryDroneInterval (查询无人机间隔时间:秒)= ", queryDroneInterval)
 	logrus.Info("配置 logLevel (日志级别)= ", logLevel)
+	logrus.Info("配置 dronesdbenable (是否启用机型库)= ", dronesDbEnable)
+	logrus.Info("配置 dronesdbenable (是否启用机型库)= ", viper.GetString("dronesdb.dronesdbenable"))
+	logrus.Info("配置 dronesDbPath (机型库路径)= ", dronesDbPath)
 }
 
 /*
@@ -92,6 +97,8 @@ func readLowerConfig(configName string, configSuffix string, configRelPath strin
 	logLevel = viper.GetString("log.loglevel")                     // 日志级别 只认：debug 、info 、 error，不区分大小写。写其它的都按debug处理
 	startTimeStr = viper.GetString("time.starttime")               // 开始时间str
 	mistakeFreqConfig = viper.GetInt("query.mistakefreq")          // 查询无人机频率 最大误差值 单位：Mhz
+	dronesDbEnable = viper.GetBool("dronesdb.dronesdbenable")      // 是否使用机型库，进行自动化测试
+	dronesDbPath = viper.GetString("dronesdb.dronesdbpath")        // 机型库路径
 
 	// 打印配置
 	logrus.Info("配置 devIp (设备ip)= ", devIp)
@@ -101,6 +108,9 @@ func readLowerConfig(configName string, configSuffix string, configRelPath strin
 	logrus.Info("配置 queryDroneInterval (查询无人机间隔时间:秒)= ", queryDroneInterval)
 	logrus.Info("配置 logLevel (日志级别)= ", logLevel)
 	logrus.Info("配置 开始时间str = ", startTimeStr)
+	logrus.Info("配置 dronesDbEnable (是否启用机型库)= ", dronesDbEnable)
+	logrus.Info("配置 dronesDbEnable (是否启用机型库)= ", viper.GetString("dronesdb.dronesdbenable"))
+	logrus.Info("配置 dronesDbPath (机型库路径)= ", dronesDbPath)
 }
 
 /*
@@ -142,6 +152,7 @@ func setVar() {
 	// viper.SetConfigType("ini")    // 设置 配置文件后缀名 eg: viper.SetConfigType("ini")
 	// viper.AddConfigPath(".")      // 设置 配置文件路径 eg: viper.AddConfigPath(".")
 	viper.Set("time.startTime", startTimeStr)
+
 	err = viper.WriteConfig() // 写到配置文件里
 	errorPanic(err)
 
@@ -272,21 +283,48 @@ func createPreSendHistoryFileTxt(filePath string) {
 4. 如果是文件 判断: 机型.txt、id.txt、*.bvsp、*.信号后缀
 */
 func setPreSendHistoryFileSheetRow(sigDir string) error {
-	// 1. 判断信号包路径能否读取到
-	path, err := os.Stat(sigDir)
-	if err != nil {
-		return err
+
+	// 不启用机型库配置 - 默认逻辑
+	if !dronesDbEnable {
+		logrus.Info("setPreSendHistoryFileSheetRow(), 参数: sigDir = ", sigDir)
+		// 1. 判断信号包路径能否读取到
+		path, err := os.Stat(sigDir)
+		if err != nil {
+			return err
+		}
+
+		// 2. 从信号包根目录，开始遍历 loopSigPkg()
+		// 3. 如果是目录
+		// 4. 如果是文件 判断: 机型.txt、id.txt、*.bvsp、*.信号后缀
+		if path.IsDir() {
+			loopDir(sigDir)
+		} else {
+			loopFile(sigDir)
+		}
+		logrus.Debug("读取的信号列表sigpkgList= ", sigpkgList)
+		return nil
 	}
 
-	// 2. 从信号包根目录，开始遍历 loopSigPkg()
-	// 3. 如果是目录
-	// 4. 如果是文件 判断: 机型.txt、id.txt、*.bvsp、*.信号后缀
-	if path.IsDir() {
-		loopDir(sigDir)
-	} else {
-		loopFile(sigDir)
+	if dronesDbEnable {
+		logrus.Info("setPreSendHistoryFileSheetRow(), 参数: sigDir = ", sigDir)
+		// 1. 判断信号包路径能否读取到
+		// path, err := os.Lstat(sigDir)
+		fileInfo, err := os.Lstat(filepath.Join(sigDir))
+		if err != nil {
+			return err
+		}
+
+		// 2. 从信号包根目录，开始遍历 loopSigPkg()
+		// 3. 如果是目录
+		// 4. 如果是文件 判断: 机型.txt、id.txt、*.bvsp、*.信号后缀
+		if fileInfo.IsDir() || (fileInfo.Mode()&os.ModeSymlink != 0) {
+			loopDir(sigDir)
+		} else {
+			loopFile(sigDir)
+		}
+		logrus.Debug("读取的信号列表sigpkgList= ", sigpkgList)
+		return nil
 	}
-	logrus.Debug("读取的信号列表sigpkgList= ", sigpkgList)
 	return nil
 }
 
@@ -301,140 +339,291 @@ func setPreSendHistoryFileSheetRow(sigDir string) error {
 3. 读取每个文件，并写入信息到 待发送列表
 */
 func loopDir(dirPath string) {
-	// 1. 读取目录所有内容
-	files, _ := os.ReadDir(dirPath)
-	logrus.Info("---------------------------------------------- 读取目录所有, files = ", files)
-	// 2. 排序所有内容
-	logrus.Error("------------------------------------- 排序还没写!!!")
+	// 不启用机型库的写法
+	if !dronesDbEnable {
+		// 1. 读取目录所有内容
+		files, _ := os.ReadDir(dirPath)
+		logrus.Info("---------------------------------------------- 读取目录所有, files = ", files)
+		// 2. 排序所有内容
+		// logrus.Error("------------------------------------- 排序还没写!!!")
 
-	// 3. 读取每个文件，并写入信息到 待发送列表
-	for _, file := range files {
-		fileAbsPath := filepath.Join(dirPath, file.Name()) // 文件/目录 绝对路径
-		// 如果是目录继续处理
-		if file.IsDir() {
-			logrus.Info("当前信号包路径: filepath.Join= ", fileAbsPath)
-			// 如果是最后目录, 就不遍历了当前目录
-			if dirIsEndDir(fileAbsPath) && !fileExist(fileAbsPath, "机型.txt") {
-				continue
-			}
-			currentDirSigNum = dirSigNum(fileAbsPath)
-			logrus.Debug("当前目录信号数量, currentDirSigNum= ", currentDirSigNum)
+		// 3. 读取每个文件，并写入信息到 待发送列表
+		for _, file := range files {
+			fileAbsPath := filepath.Join(dirPath, file.Name()) // 文件/目录 绝对路径
+			// 如果是目录继续处理
+			if file.IsDir() {
+				logrus.Debug("当前信号包路径: filepath.Join= ", fileAbsPath)
+				// 如果是最后目录, 就不遍历了当前目录
+				if dirIsEndDir(fileAbsPath) && !fileExist(fileAbsPath, "机型.txt") {
+					continue
+				}
+				currentDirSigNum = dirSigNum(fileAbsPath)
+				logrus.Debug("当前目录信号数量, currentDirSigNum= ", currentDirSigNum)
 
-			// 1. 判断是否有文件: 机型.txt id.txt文件, 有了单独处理该文件
-			/*
-				// 机型.txt只有一行的写法
+				// 1. 判断是否有文件: 机型.txt id.txt文件, 有了单独处理该文件
+				/*
+					// 机型.txt只有一行的写法
+					if fileExist(fileAbsPath, "机型.txt") {
+						logrus.Debug("匹配到 机型.txt, 设置全局变量 currentQueryTargetDrone, path= ", fileAbsPath)
+						file, err := os.Open(filepath.Join(fileAbsPath, "机型.txt"))
+						if err != nil {
+							logrus.Error("无法打开文件 机型.txt:", err)
+						}
+						defer file.Close()
+
+						contentBytes, err := io.ReadAll(file)
+						content := string(contentBytes) // 转成string
+						// 替换\r \n内容
+						content = strings.ReplaceAll(content, "\r", "")
+						content = strings.ReplaceAll(content, "\n", "")
+						logrus.Debug("读取文件 机型.txt 内容= ", string(content))
+						// 拆分内容
+						parts := strings.Split(string(content), ":")
+
+						if err != nil {
+							logrus.Error("读取文件 机型.txt 内容出错:", err)
+						}
+						currentQueryTargetDrone.Name = strings.TrimSpace(parts[0])
+						freq, err := strconv.Atoi(parts[1])
+						errorPanic(err)
+						currentQueryTargetDrone.FreqList = freq
+						logrus.Info("匹配到 机型.txt, currentQueryTargetDrone = ", currentQueryTargetDrone)
+						currentQueryTargetDroneList = append(currentQueryTargetDroneList, currentQueryTargetDrone)
+					}
+				*/
+				// 机型.txt多行的写法
 				if fileExist(fileAbsPath, "机型.txt") {
 					logrus.Debug("匹配到 机型.txt, 设置全局变量 currentQueryTargetDrone, path= ", fileAbsPath)
+
 					file, err := os.Open(filepath.Join(fileAbsPath, "机型.txt"))
 					if err != nil {
-						logrus.Error("无法打开文件 机型.txt:", err)
+						log.Fatalf("无法打开文件 机型.txt: %v", err)
 					}
 					defer file.Close()
 
-					contentBytes, err := io.ReadAll(file)
-					content := string(contentBytes) // 转成string
-					// 替换\r \n内容
-					content = strings.ReplaceAll(content, "\r", "")
-					content = strings.ReplaceAll(content, "\n", "")
-					logrus.Debug("读取文件 机型.txt 内容= ", string(content))
-					// 拆分内容
-					parts := strings.Split(string(content), ":")
+					scanner := bufio.NewScanner(file)
 
+					for scanner.Scan() {
+						line := scanner.Text()
+						line = strings.ReplaceAll(line, "\r", "")
+						line = strings.ReplaceAll(line, "\n", "")
+
+						parts := strings.Split(line, ":")
+
+						if len(parts) != 2 {
+							log.Printf("文件行格式错误: %s", line)
+							continue
+						}
+
+						// drone := Drone{
+						// 	Name: strings.TrimSpace(parts[0]),
+						// }
+						drone := Drone{}
+						drone.Name = strings.TrimSpace(parts[0])
+
+						freq, err := strconv.Atoi(parts[1])
+						if err != nil {
+							log.Printf("无法解析频率: %v", err)
+							continue
+						}
+						drone.FreqList = freq
+
+						logrus.Info("读取文件 机型.txt 内容 = ", line)
+						logrus.Info("匹配到 机型.txt, currentQueryTargetDrone = ", drone)
+						currentQueryTargetDrone = append(currentQueryTargetDrone, drone)
+						logrus.Info("匹配到 机型.txt, currentQueryTargetDroneList = ", currentQueryTargetDrone)
+					}
+
+					if err := scanner.Err(); err != nil {
+						log.Fatalf("读取文件 机型.txt 内容出错: %v", err)
+					}
+				}
+
+				// 1. 判断是否有文件:  id.txt文件, 有了单独处理该文件
+				if fileExist(fileAbsPath, "id.txt") {
+					logrus.Debug("匹配到id.txt, path= ", fileAbsPath)
+
+					file, err := os.Open(filepath.Join(fileAbsPath, "id.txt"))
 					if err != nil {
-						logrus.Error("读取文件 机型.txt 内容出错:", err)
+						logrus.Error("无法打开文件 id.txt:", err)
 					}
-					currentQueryTargetDrone.Name = strings.TrimSpace(parts[0])
-					freq, err := strconv.Atoi(parts[1])
-					errorPanic(err)
-					currentQueryTargetDrone.FreqList = freq
-					logrus.Info("匹配到 机型.txt, currentQueryTargetDrone = ", currentQueryTargetDrone)
-					currentQueryTargetDroneList = append(currentQueryTargetDroneList, currentQueryTargetDrone)
-				}
-			*/
-			// 机型.txt多行的写法
-			if fileExist(fileAbsPath, "机型.txt") {
-				logrus.Debug("匹配到 机型.txt, 设置全局变量 currentQueryTargetDrone, path= ", fileAbsPath)
+					defer file.Close()
 
-				file, err := os.Open(filepath.Join(fileAbsPath, "机型.txt"))
-				if err != nil {
-					log.Fatalf("无法打开文件 机型.txt: %v", err)
-				}
-				defer file.Close()
-
-				scanner := bufio.NewScanner(file)
-
-				for scanner.Scan() {
-					line := scanner.Text()
-					line = strings.ReplaceAll(line, "\r", "")
-					line = strings.ReplaceAll(line, "\n", "")
-
-					parts := strings.Split(line, ":")
-
-					if len(parts) != 2 {
-						log.Printf("文件行格式错误: %s", line)
-						continue
-					}
-
-					// drone := Drone{
-					// 	Name: strings.TrimSpace(parts[0]),
-					// }
-					drone := Drone{}
-					drone.Name = strings.TrimSpace(parts[0])
-
-					freq, err := strconv.Atoi(parts[1])
+					content, err := io.ReadAll(file)
+					logrus.Debug("读取文件id.txt 内容= ", string(content))
 					if err != nil {
-						log.Printf("无法解析频率: %v", err)
-						continue
+						logrus.Error("读取文件id.txt 内容出错:", err)
 					}
-					drone.FreqList = freq
+					// 读取id.txt 多个id
+					// 使用 Split 函数按照 "/" 分割字符串
+					contentTrimSpace := strings.TrimSpace(string(content))             // 去除前后空格
+					currentQueryTargetDroneIds := strings.Split(contentTrimSpace, "/") // 通过/ 分割
 
-					logrus.Info("读取文件 机型.txt 内容 = ", line)
-					logrus.Info("匹配到 机型.txt, currentQueryTargetDrone = ", drone)
-					currentQueryTargetDrone = append(currentQueryTargetDrone, drone)
-					logrus.Info("匹配到 机型.txt, currentQueryTargetDroneList = ", currentQueryTargetDrone)
-				}
+					// 如果切片的长度为1，说明原来的字符串中没有 "/"
+					if len(currentQueryTargetDroneIds) == 1 {
+						// 将 content 添加到切片的第一个元素位置
+						currentQueryTargetDroneIds = []string{contentTrimSpace}
+					}
 
-				if err := scanner.Err(); err != nil {
-					log.Fatalf("读取文件 机型.txt 内容出错: %v", err)
+					for i, _ := range currentQueryTargetDrone {
+						// drone.Id = currentQueryTargetDroneIds  // 这样写，赋值不过去
+						currentQueryTargetDrone[i].Id = currentQueryTargetDroneIds // 这样写，能赋值过去 why?
+					}
+					logrus.Info("匹配到id.txt, currentSigPkgDroneId = ", currentQueryTargetDroneIds)
+					logrus.Info("currentQueryTargetDroneList,添加ids后 = ", currentQueryTargetDrone)
 				}
+				loopDir(fileAbsPath)
+			} else { // 如果是文件，解析它、
+				loopFile(fileAbsPath)
+			}
+		}
+	}
+
+	// 启用机型库的写法
+	if dronesDbEnable {
+		// 1. 读取目录所有内容
+		files, _ := os.ReadDir(dirPath)
+		logrus.Infof("---------------------------------------------- loopDir(), 读取目录%v所有, files = %v", dirPath, files)
+		// 2. 排序所有内容
+		// logrus.Error("------------------------------------- 排序还没写!!!")
+
+		// 3. 读取每个文件，并写入信息到 待发送列表
+		for _, file := range files {
+			fileAbsPath := filepath.Join(dirPath, file.Name()) // 文件/目录 绝对路径
+			fileInfo, err := os.Lstat(filepath.Join(dirPath, file.Name()))
+			if err != nil {
+				fmt.Println("获取文件信息出错:", err)
+				continue
 			}
 
-			// 1. 判断是否有文件:  id.txt文件, 有了单独处理该文件
-			if fileExist(fileAbsPath, "id.txt") {
-				logrus.Debug("匹配到id.txt, path= ", fileAbsPath)
-
-				file, err := os.Open(filepath.Join(fileAbsPath, "id.txt"))
-				if err != nil {
-					logrus.Error("无法打开文件 id.txt:", err)
+			// 如果是目录继续处理
+			if fileInfo.IsDir() || (fileInfo.Mode()&os.ModeSymlink != 0) { // 链接文件夹，或者普通文件夹
+				logrus.Info("---------- loopDir(), 进入逻辑:  fileInfo.IsDir() || (fileInfo.Mode()&os.ModeSymlink != 0) ")
+				logrus.Debug("当前信号包路径: filepath.Join= ", fileAbsPath)
+				// 如果是最后目录, 就不遍历了当前目录
+				if dirIsEndDir(fileAbsPath) && !fileExist(fileAbsPath, "机型.txt") {
+					logrus.Info("---------- loopDir(), 进入逻辑:   dirIsEndDir(fileAbsPath) && !fileExist(fileAbsPath, 跳过当前循环")
+					continue
 				}
-				defer file.Close()
+				currentDirSigNum = dirSigNum(fileAbsPath)
+				logrus.Debug("当前目录信号数量, currentDirSigNum= ", currentDirSigNum)
 
-				content, err := io.ReadAll(file)
-				logrus.Debug("读取文件id.txt 内容= ", string(content))
-				if err != nil {
-					logrus.Error("读取文件id.txt 内容出错:", err)
-				}
-				// 读取id.txt 多个id
-				// 使用 Split 函数按照 "/" 分割字符串
-				contentTrimSpace := strings.TrimSpace(string(content))             // 去除前后空格
-				currentQueryTargetDroneIds := strings.Split(contentTrimSpace, "/") // 通过/ 分割
+				// 1. 判断是否有文件: 机型.txt id.txt文件, 有了单独处理该文件
+				/*
+					// 机型.txt只有一行的写法
+					if fileExist(fileAbsPath, "机型.txt") {
+						logrus.Debug("匹配到 机型.txt, 设置全局变量 currentQueryTargetDrone, path= ", fileAbsPath)
+						file, err := os.Open(filepath.Join(fileAbsPath, "机型.txt"))
+						if err != nil {
+							logrus.Error("无法打开文件 机型.txt:", err)
+						}
+						defer file.Close()
 
-				// 如果切片的长度为1，说明原来的字符串中没有 "/"
-				if len(currentQueryTargetDroneIds) == 1 {
-					// 将 content 添加到切片的第一个元素位置
-					currentQueryTargetDroneIds = []string{contentTrimSpace}
+						contentBytes, err := io.ReadAll(file)
+						content := string(contentBytes) // 转成string
+						// 替换\r \n内容
+						content = strings.ReplaceAll(content, "\r", "")
+						content = strings.ReplaceAll(content, "\n", "")
+						logrus.Debug("读取文件 机型.txt 内容= ", string(content))
+						// 拆分内容
+						parts := strings.Split(string(content), ":")
+
+						if err != nil {
+							logrus.Error("读取文件 机型.txt 内容出错:", err)
+						}
+						currentQueryTargetDrone.Name = strings.TrimSpace(parts[0])
+						freq, err := strconv.Atoi(parts[1])
+						errorPanic(err)
+						currentQueryTargetDrone.FreqList = freq
+						logrus.Info("匹配到 机型.txt, currentQueryTargetDrone = ", currentQueryTargetDrone)
+						currentQueryTargetDroneList = append(currentQueryTargetDroneList, currentQueryTargetDrone)
+					}
+				*/
+				// 机型.txt多行的写法
+				if fileExist(fileAbsPath, "机型.txt") {
+					logrus.Debug("匹配到 机型.txt, 设置全局变量 currentQueryTargetDrone, path= ", fileAbsPath)
+
+					file, err := os.Open(filepath.Join(fileAbsPath, "机型.txt"))
+					if err != nil {
+						log.Fatalf("无法打开文件 机型.txt: %v", err)
+					}
+					defer file.Close()
+
+					scanner := bufio.NewScanner(file)
+
+					for scanner.Scan() {
+						line := scanner.Text()
+						line = strings.ReplaceAll(line, "\r", "")
+						line = strings.ReplaceAll(line, "\n", "")
+
+						parts := strings.Split(line, ":")
+
+						if len(parts) != 2 {
+							log.Printf("文件行格式错误: %s", line)
+							continue
+						}
+
+						// drone := Drone{
+						// 	Name: strings.TrimSpace(parts[0]),
+						// }
+						drone := Drone{}
+						drone.Name = strings.TrimSpace(parts[0])
+
+						freq, err := strconv.Atoi(parts[1])
+						if err != nil {
+							log.Printf("无法解析频率: %v", err)
+							continue
+						}
+						drone.FreqList = freq
+
+						logrus.Info("读取文件 机型.txt 内容 = ", line)
+						logrus.Info("匹配到 机型.txt, currentQueryTargetDrone = ", drone)
+						currentQueryTargetDrone = append(currentQueryTargetDrone, drone)
+						logrus.Info("匹配到 机型.txt, currentQueryTargetDroneList = ", currentQueryTargetDrone)
+					}
+
+					if err := scanner.Err(); err != nil {
+						log.Fatalf("读取文件 机型.txt 内容出错: %v", err)
+					}
 				}
 
-				for i, _ := range currentQueryTargetDrone {
-					// drone.Id = currentQueryTargetDroneIds  // 这样写，赋值不过去
-					currentQueryTargetDrone[i].Id = currentQueryTargetDroneIds // 这样写，能赋值过去 why?
+				// 1. 判断是否有文件:  id.txt文件, 有了单独处理该文件
+				if fileExist(fileAbsPath, "id.txt") {
+					logrus.Debug("匹配到id.txt, path= ", fileAbsPath)
+
+					file, err := os.Open(filepath.Join(fileAbsPath, "id.txt"))
+					if err != nil {
+						logrus.Error("无法打开文件 id.txt:", err)
+					}
+					defer file.Close()
+
+					content, err := io.ReadAll(file)
+					logrus.Debug("读取文件id.txt 内容= ", string(content))
+					if err != nil {
+						logrus.Error("读取文件id.txt 内容出错:", err)
+					}
+					// 读取id.txt 多个id
+					// 使用 Split 函数按照 "/" 分割字符串
+					contentTrimSpace := strings.TrimSpace(string(content))             // 去除前后空格
+					currentQueryTargetDroneIds := strings.Split(contentTrimSpace, "/") // 通过/ 分割
+
+					// 如果切片的长度为1，说明原来的字符串中没有 "/"
+					if len(currentQueryTargetDroneIds) == 1 {
+						// 将 content 添加到切片的第一个元素位置
+						currentQueryTargetDroneIds = []string{contentTrimSpace}
+					}
+
+					for i, _ := range currentQueryTargetDrone {
+						// drone.Id = currentQueryTargetDroneIds  // 这样写，赋值不过去
+						currentQueryTargetDrone[i].Id = currentQueryTargetDroneIds // 这样写，能赋值过去 why?
+					}
+					logrus.Info("匹配到id.txt, currentSigPkgDroneId = ", currentQueryTargetDroneIds)
+					logrus.Info("currentQueryTargetDroneList,添加ids后 = ", currentQueryTargetDrone)
 				}
-				logrus.Info("匹配到id.txt, currentSigPkgDroneId = ", currentQueryTargetDroneIds)
-				logrus.Info("currentQueryTargetDroneList,添加ids后 = ", currentQueryTargetDrone)
+				loopDir(fileAbsPath)
+			} else { // 如果是文件，解析它、
+				loopFile(fileAbsPath)
 			}
-			loopDir(fileAbsPath)
-		} else { // 如果是文件，解析它、
-			loopFile(fileAbsPath)
 		}
 	}
 }
@@ -657,4 +846,55 @@ func regOneSigNum(oneSigPath string) int {
 	}
 	// fmt.Println(num)
 	return num
+}
+
+/*
+功能：检测机型库 dronesDb 对象，完善该对象数据。并把判断结果（信号路径重复项数量、信号文件夹路径是否存在）写入 机型库.xlsx文件中
+参数：
+1. dronesDB 对象 不用参数,直接修改全局变量 dronesDB
+
+返回值：
+nil
+*/
+func checkDronesDbAndWrite2Excel() {
+	// 步骤1. 准备文件( 不存在即创建)
+	file, err := createOrOpenExcelFile(dronesDbPath)
+	errorPanic(err)
+
+	// 创建一个哈希表用于存储数组A中每个元素的出现次数,初始化
+	pathNumMap := make(map[string]int)
+	for _, path := range dronesDb.SigFolderPath {
+		pathNumMap[path] = 0 // 初始化 = 0
+	}
+
+	for index, path := range dronesDb.SigFolderPath {
+		// 步骤2: 判断 信号文件夹路径是否存在，更新 dronesDb 对象
+		if checkPathExist(path) {
+			dronesDb.SigFolderPathExist = append(dronesDb.SigFolderPathExist, true)
+		} else {
+			dronesDb.SigFolderPathExist = append(dronesDb.SigFolderPathExist, true)
+		}
+
+		// 步骤3: 把 信号文件夹路径是否存在，写入excel
+		// 写入内容
+		row := dronesDb.SigFolderPathExist[index]
+		file.SetCellValue("机型库", "K"+strconv.Itoa(index+2), row) // 从第2行开始写入。 &row 会写进入 内存地址，,不对
+		errorPanic(err)
+
+		// 步骤4: 判断 信号路径重复项数量，更新 dronesDb 对象
+		// 如果path 在map的key里
+		if checkStringInMap(pathNumMap, path) {
+			pathNumMap[path]++
+		}
+		dronesDb.SigFolderPathRepeatNum = append(dronesDb.SigFolderPathRepeatNum, pathNumMap[path])
+
+		// 步骤5: 把 信号路径重复项数量, 写入excel
+		file.SetCellValue("机型库", "N"+strconv.Itoa(index+2), dronesDb.SigFolderPathRepeatNum[index]) // 从第2行开始写入。 &row 会写进入 内存地址，,不对
+		errorPanic(err)
+	}
+
+	// 步骤4. 保存生效
+	err = file.SaveAs(dronesDbPath)
+	errorPanic(err)
+
 }
