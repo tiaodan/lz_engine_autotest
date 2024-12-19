@@ -122,7 +122,204 @@ func createReport() {
 	// 3. 写入表内容
 	err = reportFile.SaveAs(reportFilePath)
 	errorPanic(err)
+}
 
+// 功能：已生成的报告，整合到 机型库里:机型库(已经回放信号的)
+/*
+	思路：
+	1. 准备报告文件( 不存在即创建)
+	2. 创建表头
+	3. 写入表内容
+	4. 保存文件
+*/
+func createReportRelateSigReplayDronesDb() {
+	logrus.Info("分析报告-关联 机型库(已经回放信号的)")
+	// 步骤1: 打开文件
+	reportFile, err = createOrOpenExcelFile(reportFilePath)
+	errorPanic(err)
+
+	// 步骤2:  创建表头
+	// 创建表 - 分析报告
+	sheetIndex, _ := reportFile.NewSheet("分析报告-关联机型库(已回放信号)")
+	// 设置表为 活动窗口
+	reportFile.SetActiveSheet(sheetIndex)
+	// 设置列宽
+	reportFile.SetColWidth("分析报告-关联机型库(已回放信号)", "A", "P", 15)
+	// 写入表头
+	tableHeaders := []Any{"ID", "厂家", "品牌", "型号", "协议(drones.csv)", "协议子类型(drones.csv)", "频段",
+		"详细频率", "信号文件夹名称(品牌-型号-频段-详细频率)", "信号文件夹路径",
+		"信号文件夹路径是否存在", "机型.txt内容", "id.txt内容", "信号文件夹路径重复数量",
+		"要查询的机型", "查询结果", "异常原因", "总用时(单位: 分钟)"}
+	err = reportFile.SetSheetRow("分析报告-关联机型库(已回放信号)", "A1", &tableHeaders)
+	errorPanic(err)
+
+	// 步骤3:  写入表内容
+	// 把分析报告 - 内容装到map里
+	sigPathMap := make(map[string]string)     // 具体机型路径 map key value 类型 key 都是 sigPath，因为它唯一
+	queryDroneMap := make(map[string]string)  // 要查询的机型 map, key 都是 sigPath，因为它唯一
+	queryResultMap := make(map[string]string) // 查询结果 map, key 都是 sigPath，因为它唯一
+	errorReasonMap := make(map[string]string) // 异常原因 map, key 都是 sigPath，因为它唯一
+	totalTimeMap := make(map[string]string)   // 总时长 map, key 都是 sigPath，因为它唯一
+	// for 循环 读取分析报告
+	file, err := createOrOpenExcelFile(reportFilePath)
+	errorPanic(err)
+
+	// 获取工作表所有列
+	sheetName := "分析报告"
+	rows, err := file.Rows(sheetName)
+	errorPanic(err)
+	logrus.Infof("func=createReportRelateSigReplayDronesDb(), path= %v, sheetName=%v", reportFilePath, sheetName)
+
+	index := 2
+	for rows.Next() {
+		sigPath, err := file.GetCellValue(sheetName, "B"+strconv.Itoa(index)) // 具体机型路径
+		errorPanic(err)
+		if sigPath == "" { // 如果不判断发送最后一条空数据时，会报错。因为有 rows.Next()。会获取到最后一条数据，下一行的空数据
+			break
+		}
+		sigPathMap[sigPath] = sigPath
+
+		queryDrone, err := file.GetCellValue(sheetName, "C"+strconv.Itoa(index)) // 要查询的机型
+		errorPanic(err)
+		queryDroneMap[sigPath] = queryDrone
+
+		queryResult, err := file.GetCellValue(sheetName, "D"+strconv.Itoa(index)) // 查询结果
+		errorPanic(err)
+		queryResultMap[sigPath] = queryResult
+
+		errorReason, err := file.GetCellValue(sheetName, "E"+strconv.Itoa(index)) // 查询结果
+		errorPanic(err)
+		errorReasonMap[sigPath] = errorReason
+
+		totalTime, err := file.GetCellValue(sheetName, "F"+strconv.Itoa(index)) // 查询结果
+		errorPanic(err)
+		totalTimeMap[sigPath] = totalTime
+
+		index++
+	}
+
+	logrus.Info("sigPathMap = ", sigPathMap)
+	// for写入 sheet: 分析报告-关联机型库(已回放信号) 每一行 for dronesDb
+	/*
+		tableHeaders := []Any{"ID", "厂家", "品牌", "型号", "协议(drones.csv)","协议子类型(drones.csv)" "频段",
+		"详细频率", "信号文件夹名称(品牌-型号-频段-详细频率)", "信号文件夹路径",
+		"信号文件夹路径是否存在", "机型.txt内容", "id.txt内容", "信号文件夹路径重复数量",
+		"要查询的机型", "查询结果", "异常原因", "总用时(单位: 分钟)"}
+	*/
+	logrus.Info("dronesDb.SigFolderPath = ", dronesDb.SigFolderPath)
+	for index, sigPath := range dronesDb.SigFolderPath {
+		logrus.Infof("写入 sheet: 分析报告-关联机型库(已回放信号) , index= %v, sigPath= %v", index, sigPath)
+		tableRow := []Any{dronesDb.Id[index], dronesDb.Manufacture[index], dronesDb.Brand[index], dronesDb.Model[index],
+			dronesDb.Protocol[index], dronesDb.Subtype[index], dronesDb.FreqBand[index], dronesDb.Freq[index],
+			dronesDb.SigFolderName[index], dronesDb.SigFolderPath[index], dronesDb.SigFolderPathExist[index],
+			dronesDb.DroneTxt[index], dronesDb.DroneIdTxt[index], dronesDb.SigFolderPathRepeatNum[index],
+			queryDroneMap[sigPath], queryResultMap[sigPath], errorReasonMap[sigPath], totalTimeMap[sigPath]}
+		err = reportFile.SetSheetRow("分析报告-关联机型库(已回放信号)", "A"+strconv.Itoa(index+2), &tableRow)
+		errorPanic(err)
+	}
+
+	// 步骤4：保存文件
+	err = reportFile.SaveAs(reportFilePath)
+	errorPanic(err)
+}
+
+// 功能：已生成的报告，整合到 机型库里:机型库(最全机型库)
+/*
+	思路：
+	1. 准备报告文件( 不存在即创建)
+	2. 对比信息
+	3. 写入表内容
+*/
+func createReportRelateAllDronesDb() {
+	logrus.Info("分析报告-关联 机型库(最全机型库)")
+	// 步骤1: 打开文件
+	reportFile, err = createOrOpenExcelFile(reportFilePath)
+	errorPanic(err)
+
+	// 步骤2:  创建表头
+	// 创建表 - 分析报告
+	sheetIndex, _ := reportFile.NewSheet("分析报告-关联机型库(最全机型库)")
+	// 设置表为 活动窗口
+	reportFile.SetActiveSheet(sheetIndex)
+	// 设置列宽
+	reportFile.SetColWidth("分析报告-关联机型库(最全机型库)", "A", "P", 15)
+	// reportFile.SetColWidth("分析报告", "A", "P", 15) // 没有自适应写法
+	// 写入表头
+	tableHeaders := []Any{"ID", "厂家", "品牌", "型号", "协议(drones.csv)", "协议子类型(drones.csv)", "频段",
+		"详细频率", "信号文件夹名称(品牌-型号-频段-详细频率)", "信号文件夹路径",
+		"信号文件夹路径是否存在", "机型.txt内容", "id.txt内容", "信号文件夹路径重复数量",
+		"要查询的机型", "查询结果", "异常原因", "总用时(单位: 分钟)"}
+	err = reportFile.SetSheetRow("分析报告-关联机型库(最全机型库)", "A1", &tableHeaders)
+	errorPanic(err)
+
+	// 步骤3:  写入表内容
+	// 把分析报告 - 内容装到map里
+	sigPathMap := make(map[string]string)     // 具体机型路径 map key value 类型 key 都是 sigPath，因为它唯一
+	queryDroneMap := make(map[string]string)  // 要查询的机型 map, key 都是 sigPath，因为它唯一
+	queryResultMap := make(map[string]string) // 查询结果 map, key 都是 sigPath，因为它唯一
+	errorReasonMap := make(map[string]string) // 异常原因 map, key 都是 sigPath，因为它唯一
+	totalTimeMap := make(map[string]string)   // 总时长 map, key 都是 sigPath，因为它唯一
+	// for 循环 读取分析报告
+	file, err := createOrOpenExcelFile(reportFilePath)
+	errorPanic(err)
+
+	// 获取工作表所有列
+	sheetName := "分析报告"
+	rows, err := file.Rows(sheetName)
+	errorPanic(err)
+	logrus.Infof("func=createReportRelateSigReplayDronesDb(), path= %v, sheetName=%v", reportFilePath, sheetName)
+
+	index := 2
+	for rows.Next() {
+		sigPath, err := file.GetCellValue(sheetName, "B"+strconv.Itoa(index)) // 具体机型路径
+		errorPanic(err)
+		if sigPath == "" { // 如果不判断发送最后一条空数据时，会报错。因为有 rows.Next()。会获取到最后一条数据，下一行的空数据
+			break
+		}
+		sigPathMap[sigPath] = sigPath
+
+		queryDrone, err := file.GetCellValue(sheetName, "C"+strconv.Itoa(index)) // 要查询的机型
+		errorPanic(err)
+		queryDroneMap[sigPath] = queryDrone
+
+		queryResult, err := file.GetCellValue(sheetName, "D"+strconv.Itoa(index)) // 查询结果
+		errorPanic(err)
+		queryResultMap[sigPath] = queryResult
+
+		errorReason, err := file.GetCellValue(sheetName, "E"+strconv.Itoa(index)) // 查询结果
+		errorPanic(err)
+		errorReasonMap[sigPath] = errorReason
+
+		totalTime, err := file.GetCellValue(sheetName, "F"+strconv.Itoa(index)) // 查询结果
+		errorPanic(err)
+		totalTimeMap[sigPath] = totalTime
+
+		index++
+	}
+
+	logrus.Info("sigPathMap = ", sigPathMap)
+	// for写入 sheet: 分析报告-关联机型库(已回放信号) 每一行 for allDronesDb
+	/*
+		tableHeaders := []Any{"ID", "厂家", "品牌", "型号", "协议(drones.csv)","协议子类型(drones.csv)" "频段",
+		"详细频率", "信号文件夹名称(品牌-型号-频段-详细频率)", "信号文件夹路径",
+		"信号文件夹路径是否存在", "机型.txt内容", "id.txt内容", "信号文件夹路径重复数量",
+		"要查询的机型", "查询结果", "异常原因", "总用时(单位: 分钟)"}
+	*/
+	logrus.Info("allDronesDb.SigFolderPath = ", allDronesDb.SigFolderPath)
+	for index, sigPath := range allDronesDb.SigFolderPath {
+		logrus.Infof("写入 sheet: 分析报告-关联机型库(最全机型库) , index= %v, sigPath= %v", index, sigPath)
+		tableRow := []Any{allDronesDb.Id[index], allDronesDb.Manufacture[index], allDronesDb.Brand[index], allDronesDb.Model[index],
+			allDronesDb.Protocol[index], allDronesDb.Subtype[index], allDronesDb.FreqBand[index], allDronesDb.Freq[index],
+			allDronesDb.SigFolderName[index], allDronesDb.SigFolderPath[index], allDronesDb.SigFolderPathExist[index],
+			allDronesDb.DroneTxt[index], allDronesDb.DroneIdTxt[index], allDronesDb.SigFolderPathRepeatNum[index],
+			queryDroneMap[sigPath], queryResultMap[sigPath], errorReasonMap[sigPath], totalTimeMap[sigPath]}
+		err = reportFile.SetSheetRow("分析报告-关联机型库(最全机型库)", "A"+strconv.Itoa(index+2), &tableRow)
+		errorPanic(err)
+	}
+
+	// 步骤4：保存文件
+	err = reportFile.SaveAs(reportFilePath)
+	errorPanic(err)
 }
 
 // 处理查询结果的算法 - 写到 报告的表里

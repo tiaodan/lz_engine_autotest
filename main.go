@@ -73,9 +73,11 @@ var (
 	mistakeFreqConfig  int    // 查询无人机频率 最大误差值 单位：Mhz 配置文件中写的
 
 	// 配置-机型库相关
-	dronesDb       DroneDB // 机型库结构体
-	dronesDbEnable bool    // 是否根据机型库，进行自动化引擎测试
-	dronesDbPath   string  // 机型库路径
+	dronesDb        DroneDB // 机型库结构体-回放信号用
+	allDronesDb     DroneDB // 机型库结构体-all
+	dronesDbEnable  bool    // 是否根据机型库，进行自动化引擎测试
+	dronesDbPath    string  // 机型库路径 - 回放信号用
+	allDronesDbPath string  // all机型库路径
 
 	// 文件相关
 	preSendHistoryFilePath      string         // 预发送记录文件 路径
@@ -234,6 +236,7 @@ func todoList() {
 	logrus.Info("----------- ubuntu 是否需要管理员权限，才能创建软连接，还没测试")
 	logrus.Info("----------- id。txt 要支持正则表达式，因为id有可能是随机的")
 	logrus.Info("----------- 要写单元测试")
+	logrus.Info("----------- 把所有 if dronesDbEnable 改成if eles形式")
 	logrus.Info("----------- 待办事项 end")
 }
 
@@ -353,20 +356,29 @@ func ready() {
 
 		createPreSendHistoryFile(preSendHistoryFilePath)
 
+		// 步骤5：读取 all机型库文件
+		getAllDronesDbFromExcel(allDronesDbPath, "机型库")
+		logrus.Info("all机型库= ", allDronesDb)
+
+		// 步骤6：判断机型库内容：，并写到all机型库文件里
+		checkAllDronesDbAndWrite2Excel()
+
 		// createPreSendHistoryFileHeaderTxt(preSendHistoryFileTxtPath) // txt文件表头
 		// createPreSendHistoryFileTxt(preSendHistoryFileTxtPath)       // txt文件,这个方法用不到，因为已经在上面写excel方法里createPreSendHistoryFile()，写了txt
-	}
 
+		logrus.Info("ready end 阶段, dronesDb.SigFolderPath = ", dronesDb.SigFolderPath)
+		logrus.Info("ready end 阶段, dronesDb = ", dronesDb)
+		logrus.Info("ready end 阶段, allDronesDb.SigFolderPath = ", allDronesDb.SigFolderPath)
+		logrus.Info("ready end 阶段, allDronesDb = ", allDronesDb)
+	}
 	logrus.Info("------------ ready 阶段 end")
 }
 
 // 功能 feed 流程
 func feed() {
-	logrus.Info("------------feed 阶段 start")
 	// 读取配置
 	readLowerConfig("config", "ini", ".")
 	// 读取配置开始时间
-
 	preSendHistoryFilePath = "待发送列表-" + startTimeStr + ".xlsx"
 	preSendHistoryFileSheetName = "待发送列表"
 	preSendHistoryFileTxtPath = "待发送列表-" + startTimeStr + ".txt" // 预发送记录文件txt 路径
@@ -376,37 +388,115 @@ func feed() {
 	queryHistroyFilePath = "查询列表" + startTimeStr + ".xlsx"   // 查询文件路径
 	queryHistroyFileTxtPath = "查询列表" + startTimeStr + ".txt" // 查询记录文件txt 路径
 
-	// 1. 创建或者打开文件
-	preSendHistoryFile, err = createOrOpenExcelFile(preSendHistoryFilePath)
-	errorPanic(err)
+	// 不启用 机型库 写法
+	if !dronesDbEnable {
+		logrus.Info("------------feed 阶段 start")
+		// 1. 创建或者打开文件
+		preSendHistoryFile, err = createOrOpenExcelFile(preSendHistoryFilePath)
+		errorPanic(err)
 
-	// 步骤3：发送信号      - 原来的 feed 环节
-	go sendTask()
-	queryTask()
+		// 步骤3：发送信号      - 原来的 feed 环节
+		go sendTask()
+		queryTask()
 
-	logrus.Info("------------feed 阶段 end")
+		logrus.Info("------------feed 阶段 end")
+	}
+
+	// 启用 机型库 写法
+	if dronesDbEnable {
+		logrus.Info("------------feed 阶段 start")
+		// 步骤1：读取 机型库文件 -- 不加这个，单独也运行feed 阶段， dronesDb 对象没数据
+		getRowsFromExcel(dronesDbPath, "机型库")
+		logrus.Info("机型库= ", dronesDb)
+
+		// 步骤2：判断机型库内容：，并写到机型库文件里  -- 不加这个，单独也运行feed 阶段， dronesDb 对象没数据
+		checkDronesDbAndWrite2Excel()
+
+		logrus.Info("feed start 阶段, dronesDb.SigFolderPath = ", dronesDb.SigFolderPath)
+		logrus.Info("feed start 阶段, dronesDb = ", dronesDb)
+
+		// 1. 创建或者打开文件
+		preSendHistoryFile, err = createOrOpenExcelFile(preSendHistoryFilePath)
+		errorPanic(err)
+
+		// 步骤3：发送信号      - 原来的 feed 环节
+		go sendTask()
+		queryTask()
+
+		logrus.Info("------------feed 阶段 end")
+		logrus.Info("feed end 阶段, dronesDb.SigFolderPath = ", dronesDb.SigFolderPath)
+		logrus.Info("feed end 阶段, dronesDb = ", dronesDb)
+	}
+
 }
 
 // 功能 report 流程
 func report() {
-	logrus.Info("--------------- report 阶段 start ---------------")
 	// 读取配置
 	readLowerConfig("config", "ini", ".")
-
 	queryHistroyFilePath = "查询列表" + startTimeStr + ".xlsx"   // 查询文件路径
 	queryHistroyFileTxtPath = "查询列表" + startTimeStr + ".txt" // 查询记录文件txt 路径
 	reportFilePath = "分析报告" + startTimeStr + ".xlsx"         // 查询文件路径
 
-	// 1. 创建或者打开文件
-	queryHistroyFile, err = createOrOpenExcelFile(queryHistroyFilePath)
-	errorPanic(err)
-	// 步骤4：判断设备检测的是否对   - 原来的 report 环节
-	// 比较
-	// 生成报告
-	// queryHistroyFilePath = "查询列表20241204-101626.xlsx"                   // 注释：临时测试report模块时用，属于测试代码
-	// queryHistroyFile, err = createOrOpenExcelFile(queryHistroyFilePath) // 注释：临时测试report模块时用，属于测试代码
-	createReport()
-	logrus.Info("--------------- report 阶段 end ---------------")
+	// 不启用机型库文件 配置
+	if !dronesDbEnable {
+		logrus.Info("--------------- report 阶段 进入分支： !dronesDbEnable ---------------")
+		logrus.Info("--------------- report 阶段 start ---------------")
+		// 1. 创建或者打开文件
+		queryHistroyFile, err = createOrOpenExcelFile(queryHistroyFilePath)
+		errorPanic(err)
+		// 步骤4：判断设备检测的是否对   - 原来的 report 环节
+		// 比较
+		// 生成报告
+		// queryHistroyFilePath = "查询列表20241204-101626.xlsx"                   // 注释：临时测试report模块时用，属于测试代码
+		// queryHistroyFile, err = createOrOpenExcelFile(queryHistroyFilePath) // 注释：临时测试report模块时用，属于测试代码
+		createReport()
+		logrus.Info("--------------- report 阶段 end ---------------")
+	}
+
+	// 启用机型库文件 配置
+	if dronesDbEnable {
+		logrus.Info("--------------- report 阶段 进入分支： dronesDbEnable ---------------")
+		logrus.Info("--------------- report 阶段 start ---------------")
+		// 步骤1：读取 机型库文件 -- 不加这个，单独也运行feed 阶段， dronesDb 对象没数据
+		getRowsFromExcel(dronesDbPath, "机型库")
+		logrus.Info("机型库= ", dronesDb)
+
+		// 步骤2：判断机型库内容：，并写到机型库文件里  -- 不加这个，单独也运行feed 阶段， dronesDb 对象没数据
+		checkDronesDbAndWrite2Excel()
+
+		// 步骤3：读取 all机型库文件
+		getAllDronesDbFromExcel(allDronesDbPath, "机型库")
+		logrus.Info("all机型库= ", allDronesDb)
+
+		// 步骤4：判断机型库内容：，并写到all机型库文件里
+		checkAllDronesDbAndWrite2Excel()
+
+		// 1. 创建或者打开文件
+		queryHistroyFile, err = createOrOpenExcelFile(queryHistroyFilePath)
+		errorPanic(err)
+
+		logrus.Info("report start 阶段, dronesDb.SigFolderPath = ", dronesDb.SigFolderPath)
+		logrus.Info("report start 阶段, dronesDb = ", dronesDb)
+		logrus.Info("report start 阶段, allDronesDb.SigFolderPath = ", allDronesDb.SigFolderPath)
+		logrus.Info("report start 阶段, allDronesDb = ", allDronesDb)
+		logrus.Info("--------- report 阶段 dronesDbEnable = ", dronesDbEnable)
+
+		// 步骤5：判断设备检测的是否对   - 原来的 report 环节
+		// 比较
+		createReport()
+		// 步骤6：分析报告-关联 机型库(已经回放信号的)
+		createReportRelateSigReplayDronesDb()
+		// 步骤7：分析报告-关联 最全机型库
+		createReportRelateAllDronesDb()
+
+		logrus.Info("--------------- report 阶段 end ---------------")
+		logrus.Info("report end 阶段, dronesDb.SigFolderPath = ", dronesDb.SigFolderPath)
+		logrus.Info("report end 阶段, dronesDb = ", dronesDb)
+		logrus.Info("report end 阶段, allDronesDb.SigFolderPath = ", allDronesDb.SigFolderPath)
+		logrus.Info("report end 阶段, allDronesDb = ", allDronesDb)
+	}
+
 }
 
 // 删除当前目录 xlsx文件, txt文件

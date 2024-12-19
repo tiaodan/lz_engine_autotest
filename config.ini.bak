@@ -47,5 +47,7 @@ mistakeFreq=20
 [dronesDb]
 # 是否使用 机型库.xlsx 文件, 进行自动化测试。true: 根据 机型库.xlsx -> 生成 待发送列表；report阶段, 按照 机型库.xlsx 的机型列表，进行匹配
 droneDbEnable=true
-# 机型库文件路径
+# 机型库文件路径,用于临时回放部分筛选信号
 dronesDbPath=C:\Users\root1\Desktop\无人机实测支持列表_2024_12_11.xlsx
+# 最全机型库文件路径
+allDronesDbPath=C:\Users\root1\Desktop\all无人机实测支持列表.xlsx

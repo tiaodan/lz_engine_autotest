@@ -382,6 +382,115 @@ func getRowsFromExcel(path string, sheetName string) DroneDB {
 }
 
 /*
+功能：从all机型库 excel 获取内容
+参数：
+1. path 文件路径, 建议绝对路径
+2. sheetName 表名
+
+返回值：
+1. dronesDb DronesDB
+*/
+func getAllDronesDbFromExcel(path string, sheetName string) DroneDB {
+
+	file, err := createOrOpenExcelFile(path)
+	logrus.Infof("func=getAllDronesDbFromExcel(), path= %v, sheetName=%v", path, sheetName)
+	errorPanic(err)
+
+	// 获取工作表所有列
+	rows, err := file.Rows(sheetName)
+	errorPanic(err)
+	logrus.Info("rows= ", rows)
+
+	index := 2
+	for rows.Next() {
+		/*
+			Id                     []string `json:"id"`                     // ID
+			Manufacture            []string `json:"manufacture"`            // 厂商
+			Brand                  []string `json:"brand"`                  // 品牌
+			Model                  []string `json:"model"`                  // 型号
+			Protocol               []string `json:"protocol"`               // 协议
+			Subtype                []string `json:"subtype"`                // 子类型
+			FreqBand               []string `json:"freqBand"`               // 频段
+			Freq                   []string `json:"freq"`                   // 频率
+			SigFolderName          []string `json:"sigFolderName"`          // 信号文件夹名称(品牌-型号-频段-详细频率)
+			SigFolderPath          []string `json:"sigFolderPath"`          // 信号文件夹路径
+			SigFolderPathExist     []bool   `json:"sigFolderPathExist"`     // 信号文件夹路径是否存在
+			DroneTxt               []string `json:"droneTxt"`               // 机型.txt内容
+			DroneIdTxt             []string `json:"droneIdTxt"`             // id.txt内容
+			SigFolderPathRepeatNum []int    `json:"sigFolderPathRepeatNum"` // 信号文件夹路径重复数量
+		*/
+		// logrus.Info("getRowsFromExcel, 从excel读取内容, index= ", index)
+		id, err := file.GetCellValue(sheetName, "A"+strconv.Itoa(index)) // ID
+		errorPanic(err)
+		// if id != "" { // 不判断发送最后一条空数据时，报错。这个好像没用，如果运行正常，就删了
+		allDronesDb.Id = append(allDronesDb.Id, id)
+		// }
+		manufacture, err := file.GetCellValue(sheetName, "B"+strconv.Itoa(index)) // 厂商
+		errorPanic(err)
+		if manufacture == "" { // 如果不判断发送最后一条空数据时，会报错。因为有 rows.Next()。会获取到最后一条数据，下一行的空数据
+			return allDronesDb
+		}
+		allDronesDb.Manufacture = append(allDronesDb.Manufacture, manufacture)
+
+		brand, err := file.GetCellValue(sheetName, "C"+strconv.Itoa(index)) // 品牌
+		errorPanic(err)
+		allDronesDb.Brand = append(allDronesDb.Brand, brand)
+
+		model, err := file.GetCellValue(sheetName, "D"+strconv.Itoa(index)) // 型号
+		errorPanic(err)
+		allDronesDb.Model = append(allDronesDb.Model, model)
+
+		protocol, err := file.GetCellValue(sheetName, "E"+strconv.Itoa(index)) // 协议
+		errorPanic(err)
+		allDronesDb.Protocol = append(allDronesDb.Protocol, protocol)
+
+		subtype, err := file.GetCellValue(sheetName, "F"+strconv.Itoa(index)) // 子类型
+		errorPanic(err)
+		allDronesDb.Subtype = append(allDronesDb.Subtype, subtype)
+
+		freqBand, err := file.GetCellValue(sheetName, "G"+strconv.Itoa(index)) // 频段
+		errorPanic(err)
+		allDronesDb.FreqBand = append(allDronesDb.FreqBand, freqBand)
+
+		freq, err := file.GetCellValue(sheetName, "H"+strconv.Itoa(index)) // 频率
+		errorPanic(err)
+		allDronesDb.Freq = append(allDronesDb.Freq, freq)
+
+		sigFolderName, err := file.GetCellValue(sheetName, "I"+strconv.Itoa(index)) // 信号文件夹名称
+		errorPanic(err)
+		allDronesDb.SigFolderName = append(allDronesDb.SigFolderName, sigFolderName)
+
+		sigFolderPath, err := file.GetCellValue(sheetName, "J"+strconv.Itoa(index)) // 信号文件夹路径
+		errorPanic(err)
+		allDronesDb.SigFolderPath = append(allDronesDb.SigFolderPath, sigFolderPath)
+
+		// sigFolderPathExistStr, err := file.GetCellValue(sheetName, "K"+strconv.Itoa(index)) // 信号文件夹路径是否存在。这个需要后期, 程序判断后赋值的。而不是取值
+		// logrus.Info("--------------- sigFolderPathExistStr = ", sigFolderPathExistStr)
+		// errorPanic(err)
+		// sigFolderPathExist, err := strconv.ParseBool(sigFolderPathExistStr)
+		// errorPanic(err)
+		// allDronesDb.SigFolderPathExist = append(allDronesDb.SigFolderPathExist, sigFolderPathExist)
+
+		droneTxt, err := file.GetCellValue(sheetName, "L"+strconv.Itoa(index)) // 机型.txt内容
+		errorPanic(err)
+		allDronesDb.DroneTxt = append(allDronesDb.DroneTxt, droneTxt)
+
+		droneIdTxt, err := file.GetCellValue(sheetName, "M"+strconv.Itoa(index)) // id.txt内容
+		errorPanic(err)
+		allDronesDb.DroneIdTxt = append(allDronesDb.DroneIdTxt, droneIdTxt)
+
+		// sigFolderPathRepeatNumStr, err := file.GetCellValue(sheetName, "N"+strconv.Itoa(index)) // 信号文件夹路径重复数量。 这个需要后期, 程序判断后赋值的。而不是取值
+		// errorPanic(err)
+		// sigFolderPathRepeatNum, err := strconv.Atoi(sigFolderPathRepeatNumStr)
+		// errorEcho(err)
+		// allDronesDb.SigFolderPathRepeatNum = append(allDronesDb.SigFolderPathRepeatNum, sigFolderPathRepeatNum)
+
+		index++
+	}
+	return allDronesDb
+}
+
+/*
 功能：判断string 是否在 map的key里
 参数：
 1. path 文件路径, 建议绝对路径

@@ -98,7 +98,8 @@ func readLowerConfig(configName string, configSuffix string, configRelPath strin
 	startTimeStr = viper.GetString("time.starttime")               // 开始时间str
 	mistakeFreqConfig = viper.GetInt("query.mistakefreq")          // 查询无人机频率 最大误差值 单位：Mhz
 	dronesDbEnable = viper.GetBool("dronesdb.dronesdbenable")      // 是否使用机型库，进行自动化测试
-	dronesDbPath = viper.GetString("dronesdb.dronesdbpath")        // 机型库路径
+	dronesDbPath = viper.GetString("dronesdb.dronesdbpath")        // 机型库路径，一般用户回放部分筛选信号
+	allDronesDbPath = viper.GetString("dronesdb.alldronesdbpath")  // all机型库路径
 
 	// 打印配置
 	logrus.Info("配置 devIp (设备ip)= ", devIp)
@@ -110,7 +111,8 @@ func readLowerConfig(configName string, configSuffix string, configRelPath strin
 	logrus.Info("配置 开始时间str = ", startTimeStr)
 	logrus.Info("配置 dronesDbEnable (是否启用机型库)= ", dronesDbEnable)
 	logrus.Info("配置 dronesDbEnable (是否启用机型库)= ", viper.GetString("dronesdb.dronesdbenable"))
-	logrus.Info("配置 dronesDbPath (机型库路径)= ", dronesDbPath)
+	logrus.Info("配置 dronesDbPath (回放信号机型库路径)= ", dronesDbPath)
+	logrus.Info("配置 allDronesDbPath (机型库路径)= ", allDronesDbPath)
 }
 
 /*
@@ -181,32 +183,65 @@ func setVar() {
 6. 循环读取信号包所有文件，写入行内容
 */
 func createPreSendHistoryFile(filePath string) {
-	// 1. 创建或者打开文件
-	preSendHistoryFile, err = createOrOpenExcelFile(filePath)
-	errorPanic(err)
+	// 不启用机型库 逻辑
+	if !dronesDbEnable {
+		// 1. 创建或者打开文件
+		preSendHistoryFile, err = createOrOpenExcelFile(filePath)
+		errorPanic(err)
 
-	// 2. 创建sheet
-	sheetName := "待发送列表"
-	sheetIndex, err := preSendHistoryFile.NewSheet(sheetName)
-	errorPanic(err)
+		// 2. 创建sheet
+		sheetName := "待发送列表"
+		sheetIndex, err := preSendHistoryFile.NewSheet(sheetName)
+		errorPanic(err)
 
-	// 3. 设置活动窗口为 新建sheet
-	preSendHistoryFile.SetActiveSheet(sheetIndex)
+		// 3. 设置活动窗口为 新建sheet
+		preSendHistoryFile.SetActiveSheet(sheetIndex)
 
-	// 4. 设置列宽
-	preSendHistoryFile.SetColWidth(sheetName, "A", "F", 30)
+		// 4. 设置列宽
+		preSendHistoryFile.SetColWidth(sheetName, "A", "F", 30)
 
-	// 5. 创建表头
-	// preSendHistoryFile.SetSheetRow(sheetName, "A1", &[]Any{"厂家", "信号包路径", "要查询的无人机", "待发送信号列表", "是否已发送 TRUE/FALSE"})
-	preSendHistoryFile.SetSheetRow(sheetName, "A1", &[]Any{"厂家", "信号包路径", "要查询的无人机", "待发送信号列表"})
+		// 5. 创建表头
+		// preSendHistoryFile.SetSheetRow(sheetName, "A1", &[]Any{"厂家", "信号包路径", "要查询的无人机", "待发送信号列表", "是否已发送 TRUE/FALSE"})
+		preSendHistoryFile.SetSheetRow(sheetName, "A1", &[]Any{"厂家", "信号包路径", "要查询的无人机", "待发送信号列表"})
 
-	// 7. 保存文件
-	err = preSendHistoryFile.SaveAs(preSendHistoryFilePath)
-	errorPanic(err)
+		// 7. 保存文件
+		err = preSendHistoryFile.SaveAs(preSendHistoryFilePath)
+		errorPanic(err)
 
-	// 6. 循环读取信号包所有文件，写入行内容
-	err = setPreSendHistoryFileSheetRow(sigDir)
-	errorPanic(err)
+		// 6. 循环读取信号包所有文件，写入行内容
+		err = setPreSendHistoryFileSheetRow(sigDir)
+		errorPanic(err)
+	}
+
+	// 启用机型库 逻辑
+	if dronesDbEnable {
+		// 1. 创建或者打开文件
+		preSendHistoryFile, err = createOrOpenExcelFile(filePath)
+		errorPanic(err)
+
+		// 2. 创建sheet
+		sheetName := "待发送列表"
+		sheetIndex, err := preSendHistoryFile.NewSheet(sheetName)
+		errorPanic(err)
+
+		// 3. 设置活动窗口为 新建sheet
+		preSendHistoryFile.SetActiveSheet(sheetIndex)
+
+		// 4. 设置列宽
+		preSendHistoryFile.SetColWidth(sheetName, "A", "F", 30)
+
+		// 5. 创建表头
+		// preSendHistoryFile.SetSheetRow(sheetName, "A1", &[]Any{"厂家", "信号包路径", "要查询的无人机", "待发送信号列表", "是否已发送 TRUE/FALSE"})
+		preSendHistoryFile.SetSheetRow(sheetName, "A1", &[]Any{"厂家", "信号包路径", "要查询的无人机", "待发送信号列表"})
+
+		// 7. 保存文件
+		err = preSendHistoryFile.SaveAs(preSendHistoryFilePath)
+		errorPanic(err)
+
+		// 6. 循环读取信号包所有文件，写入行内容
+		err = setPreSendHistoryFileSheetRow(sigDir)
+		errorPanic(err)
+	}
 }
 
 /*
@@ -465,7 +500,7 @@ func loopDir(dirPath string) {
 						currentQueryTargetDroneIds = []string{contentTrimSpace}
 					}
 
-					for i, _ := range currentQueryTargetDrone {
+					for i := range currentQueryTargetDrone {
 						// drone.Id = currentQueryTargetDroneIds  // 这样写，赋值不过去
 						currentQueryTargetDrone[i].Id = currentQueryTargetDroneIds // 这样写，能赋值过去 why?
 					}
@@ -498,6 +533,13 @@ func loopDir(dirPath string) {
 
 			// 如果是目录继续处理
 			if fileInfo.IsDir() || (fileInfo.Mode()&os.ModeSymlink != 0) { // 链接文件夹，或者普通文件夹
+				if fileInfo.Mode()&os.ModeSymlink != 0 { // 读取链接，真实路径
+					fileAbsPath, err = os.Readlink(fileAbsPath)
+					if err != nil {
+						fmt.Println("获取真实路径出错:", err)
+						return
+					}
+				}
 				logrus.Info("---------- loopDir(), 进入逻辑:  fileInfo.IsDir() || (fileInfo.Mode()&os.ModeSymlink != 0) ")
 				logrus.Debug("当前信号包路径: filepath.Join= ", fileAbsPath)
 				// 如果是最后目录, 就不遍历了当前目录
@@ -613,7 +655,7 @@ func loopDir(dirPath string) {
 						currentQueryTargetDroneIds = []string{contentTrimSpace}
 					}
 
-					for i, _ := range currentQueryTargetDrone {
+					for i := range currentQueryTargetDrone {
 						// drone.Id = currentQueryTargetDroneIds  // 这样写，赋值不过去
 						currentQueryTargetDrone[i].Id = currentQueryTargetDroneIds // 这样写，能赋值过去 why?
 					}
@@ -895,6 +937,57 @@ func checkDronesDbAndWrite2Excel() {
 
 	// 步骤4. 保存生效
 	err = file.SaveAs(dronesDbPath)
+	errorPanic(err)
+
+}
+
+/*
+功能：检测机型库 allDronesDb 对象，完善该对象数据。并把判断结果（信号路径重复项数量、信号文件夹路径是否存在）写入 机型库.xlsx文件中
+参数：
+1. allDronesDb 对象 不用参数,直接修改全局变量 allDronesDb
+
+返回值：
+nil
+*/
+func checkAllDronesDbAndWrite2Excel() {
+	// 步骤1. 准备文件( 不存在即创建)
+	file, err := createOrOpenExcelFile(allDronesDbPath)
+	errorPanic(err)
+
+	// 创建一个哈希表用于存储数组A中每个元素的出现次数,初始化
+	pathNumMap := make(map[string]int)
+	for _, path := range allDronesDb.SigFolderPath {
+		pathNumMap[path] = 0 // 初始化 = 0
+	}
+
+	for index, path := range allDronesDb.SigFolderPath {
+		// 步骤2: 判断 信号文件夹路径是否存在，更新 allDronesDb 对象
+		if checkPathExist(path) {
+			allDronesDb.SigFolderPathExist = append(allDronesDb.SigFolderPathExist, true)
+		} else {
+			allDronesDb.SigFolderPathExist = append(allDronesDb.SigFolderPathExist, true)
+		}
+
+		// 步骤3: 把 信号文件夹路径是否存在，写入excel
+		// 写入内容
+		row := allDronesDb.SigFolderPathExist[index]
+		file.SetCellValue("机型库", "K"+strconv.Itoa(index+2), row) // 从第2行开始写入。 &row 会写进入 内存地址，,不对
+		errorPanic(err)
+
+		// 步骤4: 判断 信号路径重复项数量，更新 allDronesDb 对象
+		// 如果path 在map的key里
+		if checkStringInMap(pathNumMap, path) {
+			pathNumMap[path]++
+		}
+		allDronesDb.SigFolderPathRepeatNum = append(allDronesDb.SigFolderPathRepeatNum, pathNumMap[path])
+
+		// 步骤5: 把 信号路径重复项数量, 写入excel
+		file.SetCellValue("机型库", "N"+strconv.Itoa(index+2), allDronesDb.SigFolderPathRepeatNum[index]) // 从第2行开始写入。 &row 会写进入 内存地址，,不对
+		errorPanic(err)
+	}
+
+	// 步骤4. 保存生效
+	err = file.SaveAs(allDronesDbPath)
 	errorPanic(err)
 
 }
