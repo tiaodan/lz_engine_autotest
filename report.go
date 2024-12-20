@@ -149,7 +149,7 @@ func createReportRelateSigReplayDronesDb() {
 	tableHeaders := []Any{"ID", "厂家", "品牌", "型号", "协议(drones.csv)", "协议子类型(drones.csv)", "频段",
 		"详细频率", "信号文件夹名称(品牌-型号-频段-详细频率)", "信号文件夹路径",
 		"信号文件夹路径是否存在", "机型.txt内容", "id.txt内容", "信号文件夹路径重复数量",
-		"要查询的机型", "查询结果", "异常原因", "总用时(单位: 分钟)"}
+		"要查询的机型", "查询结果", "异常原因", "总用时(单位: 分钟)", "seafile链接"}
 	err = reportFile.SetSheetRow("分析报告-关联机型库(已回放信号)", "A1", &tableHeaders)
 	errorPanic(err)
 
@@ -213,7 +213,8 @@ func createReportRelateSigReplayDronesDb() {
 			dronesDb.Protocol[index], dronesDb.Subtype[index], dronesDb.FreqBand[index], dronesDb.Freq[index],
 			dronesDb.SigFolderName[index], dronesDb.SigFolderPath[index], dronesDb.SigFolderPathExist[index],
 			dronesDb.DroneTxt[index], dronesDb.DroneIdTxt[index], dronesDb.SigFolderPathRepeatNum[index],
-			queryDroneMap[sigPath], queryResultMap[sigPath], errorReasonMap[sigPath], totalTimeMap[sigPath]}
+			queryDroneMap[sigPath], queryResultMap[sigPath], errorReasonMap[sigPath], totalTimeMap[sigPath],
+			dronesDb.SeaFilePath[index]}
 		err = reportFile.SetSheetRow("分析报告-关联机型库(已回放信号)", "A"+strconv.Itoa(index+2), &tableRow)
 		errorPanic(err)
 	}
@@ -248,7 +249,7 @@ func createReportRelateAllDronesDb() {
 	tableHeaders := []Any{"ID", "厂家", "品牌", "型号", "协议(drones.csv)", "协议子类型(drones.csv)", "频段",
 		"详细频率", "信号文件夹名称(品牌-型号-频段-详细频率)", "信号文件夹路径",
 		"信号文件夹路径是否存在", "机型.txt内容", "id.txt内容", "信号文件夹路径重复数量",
-		"要查询的机型", "查询结果", "异常原因", "总用时(单位: 分钟)"}
+		"要查询的机型", "查询结果", "异常原因", "总用时(单位: 分钟)", "seafile链接"}
 	err = reportFile.SetSheetRow("分析报告-关联机型库(最全机型库)", "A1", &tableHeaders)
 	errorPanic(err)
 
@@ -307,12 +308,14 @@ func createReportRelateAllDronesDb() {
 	*/
 	logrus.Info("allDronesDb.SigFolderPath = ", allDronesDb.SigFolderPath)
 	for index, sigPath := range allDronesDb.SigFolderPath {
-		logrus.Infof("写入 sheet: 分析报告-关联机型库(最全机型库) , index= %v, sigPath= %v", index, sigPath)
+		logrus.Infof("写入 sheet: 分析报告-关联机型库(最全机型库) , allDronesDb.SeaFilePath[index]= %v", allDronesDb.SeaFilePath)
 		tableRow := []Any{allDronesDb.Id[index], allDronesDb.Manufacture[index], allDronesDb.Brand[index], allDronesDb.Model[index],
 			allDronesDb.Protocol[index], allDronesDb.Subtype[index], allDronesDb.FreqBand[index], allDronesDb.Freq[index],
 			allDronesDb.SigFolderName[index], allDronesDb.SigFolderPath[index], allDronesDb.SigFolderPathExist[index],
 			allDronesDb.DroneTxt[index], allDronesDb.DroneIdTxt[index], allDronesDb.SigFolderPathRepeatNum[index],
-			queryDroneMap[sigPath], queryResultMap[sigPath], errorReasonMap[sigPath], totalTimeMap[sigPath]}
+			queryDroneMap[sigPath], queryResultMap[sigPath], errorReasonMap[sigPath], totalTimeMap[sigPath],
+			allDronesDb.SeaFilePath[index]}
+		logrus.Infof("写入 sheet: 分析报告-关联机型库(最全机型库) , index= %v, sigPath= %v, tableRow= %v", index, sigPath, &tableRow)
 		err = reportFile.SetSheetRow("分析报告-关联机型库(最全机型库)", "A"+strconv.Itoa(index+2), &tableRow)
 		errorPanic(err)
 	}

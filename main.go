@@ -56,6 +56,7 @@ type DroneDB struct {
 	DroneTxt               []string `json:"droneTxt"`               // 机型.txt内容
 	DroneIdTxt             []string `json:"droneIdTxt"`             // id.txt内容
 	SigFolderPathRepeatNum []int    `json:"sigFolderPathRepeatNum"` // 信号文件夹路径重复数量
+	SeaFilePath            []string `json:"seaFilePath"`            // 信号seafile链接
 }
 
 // 全局变量
@@ -568,6 +569,9 @@ func createFolderLink() string {
 			// 给文件夹关联上
 			// 参数1： 被链接的文件 oldname string ; 参数2：链接 newname string
 			folderNamePath := filepath.Join(folderPath, folderName)
+
+			logrus.Info("创建软链接, oldName=  ", path)
+			logrus.Info("创建软链接, newName=  ", folderNamePath)
 			err = os.Symlink(path, folderNamePath)
 			if err != nil {
 				log.Fatalf("无法创建链接: %v", err)

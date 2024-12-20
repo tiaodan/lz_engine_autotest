@@ -191,7 +191,7 @@ func dirIsEndDir(dirPath string) bool {
 	if !dronesDbEnable {
 		files, err := os.ReadDir(dirPath)
 		if err != nil {
-			logrus.Error("目录不存在, Error reading directory: ", err)
+			logrus.Error("func=dirIsEndDir(), 目录不存在, Error reading directory: ", err)
 			return false
 		}
 
@@ -207,7 +207,7 @@ func dirIsEndDir(dirPath string) bool {
 	if dronesDbEnable {
 		files, err := os.ReadDir(dirPath)
 		if err != nil {
-			logrus.Error("目录不存在, Error reading directory: ", err)
+			logrus.Error("func=dirIsEndDir(), 目录不存在, Error reading directory: ", err)
 			return false
 		}
 
@@ -309,6 +309,7 @@ func getRowsFromExcel(path string, sheetName string) DroneDB {
 			DroneTxt               []string `json:"droneTxt"`               // 机型.txt内容
 			DroneIdTxt             []string `json:"droneIdTxt"`             // id.txt内容
 			SigFolderPathRepeatNum []int    `json:"sigFolderPathRepeatNum"` // 信号文件夹路径重复数量
+			SeaFilePath            []string `json:"seaFilePath"`            // seafile链接
 		*/
 		// logrus.Info("getRowsFromExcel, 从excel读取内容, index= ", index)
 		id, err := file.GetCellValue(sheetName, "A"+strconv.Itoa(index)) // ID
@@ -376,6 +377,10 @@ func getRowsFromExcel(path string, sheetName string) DroneDB {
 		// errorEcho(err)
 		// dronesDb.SigFolderPathRepeatNum = append(dronesDb.SigFolderPathRepeatNum, sigFolderPathRepeatNum)
 
+		seaFilePath, err := file.GetCellValue(sheetName, "O"+strconv.Itoa(index)) // seafile链接
+		errorPanic(err)
+		dronesDb.SeaFilePath = append(dronesDb.SeaFilePath, seaFilePath)
+
 		index++
 	}
 	return dronesDb
@@ -418,6 +423,7 @@ func getAllDronesDbFromExcel(path string, sheetName string) DroneDB {
 			DroneTxt               []string `json:"droneTxt"`               // 机型.txt内容
 			DroneIdTxt             []string `json:"droneIdTxt"`             // id.txt内容
 			SigFolderPathRepeatNum []int    `json:"sigFolderPathRepeatNum"` // 信号文件夹路径重复数量
+			SeaFilePath            []string `json:"seaFilePath"`       	    // seafile链接
 		*/
 		// logrus.Info("getRowsFromExcel, 从excel读取内容, index= ", index)
 		id, err := file.GetCellValue(sheetName, "A"+strconv.Itoa(index)) // ID
@@ -484,6 +490,10 @@ func getAllDronesDbFromExcel(path string, sheetName string) DroneDB {
 		// sigFolderPathRepeatNum, err := strconv.Atoi(sigFolderPathRepeatNumStr)
 		// errorEcho(err)
 		// allDronesDb.SigFolderPathRepeatNum = append(allDronesDb.SigFolderPathRepeatNum, sigFolderPathRepeatNum)
+
+		seaFilePath, err := file.GetCellValue(sheetName, "O"+strconv.Itoa(index)) // seafile链接
+		errorPanic(err)
+		allDronesDb.SeaFilePath = append(dronesDb.SeaFilePath, seaFilePath)
 
 		index++
 	}
