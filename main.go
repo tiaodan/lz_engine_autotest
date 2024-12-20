@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 	"github.com/xuri/excelize/v2"
 )
 
@@ -257,6 +258,7 @@ func main() {
 	input, _ := reader.ReadString('\n')
 	input = strings.TrimSpace(input)
 
+	programInit() // 程序初始化
 	switch input {
 	case "1":
 		logrus.Info("执行 ready 命令")
@@ -296,8 +298,8 @@ func main() {
 
 }
 
-// 功能 ready 流程
-func ready() {
+// 功能: 程序初始，把ready() feed() report() 初始化操作，都放在这，在main()方法调用
+func programInit() {
 	// 读取配置
 	logrus.Debug("读取配置")
 	// readConfig("config", "ini", ".") // 现在配置文件，全是小写了，等修复了此问题再改过来
@@ -311,6 +313,52 @@ func ready() {
 	// 设置变量（全局变量+局部变量）
 	logrus.Debug("设置变量（全局变量+局部变量）")
 	setVar()
+
+	// 步骤1：读取 机型库文件
+	getRowsFromExcel(dronesDbPath, "机型库")
+	logrus.Info("机型库= ", dronesDb)
+
+	// 步骤2：判断机型库内容：，并写到机型库文件里
+	checkDronesDbAndWrite2Excel()
+
+	// 步骤5：读取 all机型库文件
+	getAllDronesDbFromExcel(allDronesDbPath, "机型库")
+	logrus.Info("all机型库= ", allDronesDb)
+
+	// 步骤6：判断机型库内容：，并写到all机型库文件里
+	checkAllDronesDbAndWrite2Excel()
+}
+
+// 功能 ready 流程
+func ready() {
+	// ready 阶段，写入配置文件 开始时间
+	// 设置 程序开始时间变量 初始值
+	startTime = time.Now()
+	startTimeStr = time2stringforFilename(startTime)
+	// 文件相关变量。设置成 文件-时间.xlsx
+	preSendHistoryFilePath = "待发送列表-" + startTimeStr + ".xlsx"
+	preSendHistoryFileSheetName = "待发送列表"
+	preSendHistoryFileTxtPath = "待发送列表-" + startTimeStr + ".txt" // 预发送记录文件txt 路径
+
+	queryHistroyFilePath = "查询列表" + startTimeStr + ".xlsx"   // 查询文件路径
+	queryHistroyFileTxtPath = "查询列表" + startTimeStr + ".txt" // 查询记录文件txt 路径
+	reportFilePath = "分析报告" + startTimeStr + ".xlsx"         // 查询文件路径
+
+	// 设置配置文件，当前时间
+	// viper.SetConfigName("config") // 设置 配置文件名 eg: viper.SetConfigName("config")
+	// viper.SetConfigType("ini")    // 设置 配置文件后缀名 eg: viper.SetConfigType("ini")
+	// viper.AddConfigPath(".")      // 设置 配置文件路径 eg: viper.AddConfigPath(".")
+	viper.Set("time.startTime", startTimeStr)
+	viper.Set("file.presendhistoryfilepath", preSendHistoryFilePath)
+	viper.Set("file.queryhistroyfilePath", queryHistroyFilePath)
+	viper.Set("file.reportfilepath", reportFilePath)
+
+	err = viper.WriteConfig() // 写到配置文件里
+	errorPanic(err)
+	// 打印变量
+	logrus.Debug("全局变量 startTime (程序开始时间)= ", startTime)
+	logrus.Debug("全局变量 startTimeStr (查程序开始时间str)= ", startTimeStr)
+	logrus.Debug("全局变量 preSendHistoryFilePath (待发送信号记录文件路径)= ", preSendHistoryFilePath)
 
 	// 判断配置文件-配置 dronesDbEnable
 	if !dronesDbEnable {
@@ -340,14 +388,8 @@ func ready() {
 
 			报告 xlsx 加上索引，做一些dbutil操作。类似于操作db一样
 		*/
-		// 步骤1：读取 机型库文件
-		getRowsFromExcel(dronesDbPath, "机型库")
-		logrus.Info("机型库= ", dronesDb)
 		// 生成预发送信号列表文件
 		logrus.Debug("生成预发送信号列表文件")
-
-		// 步骤2：判断机型库内容：，并写到机型库文件里
-		checkDronesDbAndWrite2Excel()
 
 		// 步骤3：在本地目录，创建信号库的软链接文件 （直接剔除重复项）,信号。信号路径sigdir 改为 软链接目录
 		xinhaoTestPath := createFolderLink()
@@ -356,13 +398,6 @@ func ready() {
 		sigDir = xinhaoTestPath
 
 		createPreSendHistoryFile(preSendHistoryFilePath)
-
-		// 步骤5：读取 all机型库文件
-		getAllDronesDbFromExcel(allDronesDbPath, "机型库")
-		logrus.Info("all机型库= ", allDronesDb)
-
-		// 步骤6：判断机型库内容：，并写到all机型库文件里
-		checkAllDronesDbAndWrite2Excel()
 
 		// createPreSendHistoryFileHeaderTxt(preSendHistoryFileTxtPath) // txt文件表头
 		// createPreSendHistoryFileTxt(preSendHistoryFileTxtPath)       // txt文件,这个方法用不到，因为已经在上面写excel方法里createPreSendHistoryFile()，写了txt
@@ -377,18 +412,6 @@ func ready() {
 
 // 功能 feed 流程
 func feed() {
-	// 读取配置
-	readLowerConfig("config", "ini", ".")
-	// 读取配置开始时间
-	preSendHistoryFilePath = "待发送列表-" + startTimeStr + ".xlsx"
-	preSendHistoryFileSheetName = "待发送列表"
-	preSendHistoryFileTxtPath = "待发送列表-" + startTimeStr + ".txt" // 预发送记录文件txt 路径
-	fmt.Println("startTimeStr= ", startTimeStr)
-
-	fmt.Println("preSendHistoryFilePath= ", preSendHistoryFilePath)
-	queryHistroyFilePath = "查询列表" + startTimeStr + ".xlsx"   // 查询文件路径
-	queryHistroyFileTxtPath = "查询列表" + startTimeStr + ".txt" // 查询记录文件txt 路径
-
 	// 不启用 机型库 写法
 	if !dronesDbEnable {
 		logrus.Info("------------feed 阶段 start")
@@ -406,12 +429,6 @@ func feed() {
 	// 启用 机型库 写法
 	if dronesDbEnable {
 		logrus.Info("------------feed 阶段 start")
-		// 步骤1：读取 机型库文件 -- 不加这个，单独也运行feed 阶段， dronesDb 对象没数据
-		getRowsFromExcel(dronesDbPath, "机型库")
-		logrus.Info("机型库= ", dronesDb)
-
-		// 步骤2：判断机型库内容：，并写到机型库文件里  -- 不加这个，单独也运行feed 阶段， dronesDb 对象没数据
-		checkDronesDbAndWrite2Excel()
 
 		logrus.Info("feed start 阶段, dronesDb.SigFolderPath = ", dronesDb.SigFolderPath)
 		logrus.Info("feed start 阶段, dronesDb = ", dronesDb)
@@ -433,12 +450,6 @@ func feed() {
 
 // 功能 report 流程
 func report() {
-	// 读取配置
-	readLowerConfig("config", "ini", ".")
-	queryHistroyFilePath = "查询列表" + startTimeStr + ".xlsx"   // 查询文件路径
-	queryHistroyFileTxtPath = "查询列表" + startTimeStr + ".txt" // 查询记录文件txt 路径
-	reportFilePath = "分析报告" + startTimeStr + ".xlsx"         // 查询文件路径
-
 	// 不启用机型库文件 配置
 	if !dronesDbEnable {
 		logrus.Info("--------------- report 阶段 进入分支： !dronesDbEnable ---------------")
@@ -459,19 +470,6 @@ func report() {
 	if dronesDbEnable {
 		logrus.Info("--------------- report 阶段 进入分支： dronesDbEnable ---------------")
 		logrus.Info("--------------- report 阶段 start ---------------")
-		// 步骤1：读取 机型库文件 -- 不加这个，单独也运行feed 阶段， dronesDb 对象没数据
-		getRowsFromExcel(dronesDbPath, "机型库")
-		logrus.Info("机型库= ", dronesDb)
-
-		// 步骤2：判断机型库内容：，并写到机型库文件里  -- 不加这个，单独也运行feed 阶段， dronesDb 对象没数据
-		checkDronesDbAndWrite2Excel()
-
-		// 步骤3：读取 all机型库文件
-		getAllDronesDbFromExcel(allDronesDbPath, "机型库")
-		logrus.Info("all机型库= ", allDronesDb)
-
-		// 步骤4：判断机型库内容：，并写到all机型库文件里
-		checkAllDronesDbAndWrite2Excel()
 
 		// 1. 创建或者打开文件
 		queryHistroyFile, err = createOrOpenExcelFile(queryHistroyFilePath)

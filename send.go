@@ -46,6 +46,7 @@ func sendTask() {
 	fmt.Println("----进入方法: 开启发送任务, sendTask()")
 
 	// 获取信号列表， from 待发送列表excel
+	fmt.Println("----进入方法: 开启发送任务, sendTask(), preSendHistoryFilePath=", preSendHistoryFilePath)
 	sigpkgList = getSigpkgListFromPreSendHistoryFile(preSendHistoryFilePath, "待发送列表")
 	logrus.Info("func=sendTask(), sigpkgList= ", sigpkgList)
 	droneObjList = getQueryDroneFromPreSendHistoryFile(preSendHistoryFilePath, "待发送列表")

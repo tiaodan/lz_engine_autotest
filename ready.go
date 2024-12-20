@@ -16,7 +16,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -101,6 +100,17 @@ func readLowerConfig(configName string, configSuffix string, configRelPath strin
 	dronesDbPath = viper.GetString("dronesdb.dronesdbpath")        // 机型库路径，一般用户回放部分筛选信号
 	allDronesDbPath = viper.GetString("dronesdb.alldronesdbpath")  // all机型库路径
 
+	// 读取配置开始时间
+	preSendHistoryFilePath = viper.GetString("file.presendhistoryfilepath")
+	preSendHistoryFileSheetName = "待发送列表"
+	preSendHistoryFileTxtPath = "待发送列表-" + startTimeStr + ".txt" // 预发送记录文件txt 路径
+	fmt.Println("startTimeStr= ", startTimeStr)
+
+	fmt.Println("preSendHistoryFilePath= ", preSendHistoryFilePath)
+	queryHistroyFilePath = viper.GetString("file.queryhistroyfilePath") // 查询文件路径
+	queryHistroyFileTxtPath = "查询列表" + startTimeStr + ".txt"            // 查询记录文件txt 路径
+	reportFilePath = viper.GetString("file.reportfilepath")             // 查询文件路径
+
 	// 打印配置
 	logrus.Info("配置 devIp (设备ip)= ", devIp)
 	logrus.Info("配置 sigDir (信号包根目录)= ", sigDir)
@@ -125,14 +135,6 @@ func readLowerConfig(configName string, configSuffix string, configRelPath strin
 - 设置 文件相关变量
 */
 func setVar() {
-	// 设置 程序开始时间变量 初始值
-	startTime = time.Now()
-	startTimeStr = time2stringforFilename(startTime)
-
-	// 文件相关变量。设置成 文件-时间.xlsx
-	preSendHistoryFilePath = "待发送列表-" + startTimeStr + ".xlsx"
-	preSendHistoryFileSheetName = "待发送列表"
-	preSendHistoryFileTxtPath = "待发送列表-" + startTimeStr + ".txt" // 预发送记录文件txt 路径
 
 	// 配置日志相关
 	// 配置日志等级
@@ -149,22 +151,9 @@ func setVar() {
 
 	logrus.SetLevel(logrusLevel)
 
-	// 设置配置文件，当前时间
-	// viper.SetConfigName("config") // 设置 配置文件名 eg: viper.SetConfigName("config")
-	// viper.SetConfigType("ini")    // 设置 配置文件后缀名 eg: viper.SetConfigType("ini")
-	// viper.AddConfigPath(".")      // 设置 配置文件路径 eg: viper.AddConfigPath(".")
-	viper.Set("time.startTime", startTimeStr)
-
-	err = viper.WriteConfig() // 写到配置文件里
-	errorPanic(err)
-
 	changeFolderFlag = false // 换文件夹标志 = false
 	changeFolderFlagNum = 0
 
-	// 打印变量
-	logrus.Debug("全局变量 startTime (程序开始时间)= ", startTime)
-	logrus.Debug("全局变量 startTimeStr (查程序开始时间str)= ", startTimeStr)
-	logrus.Debug("全局变量 preSendHistoryFilePath (待发送信号记录文件路径)= ", preSendHistoryFilePath)
 }
 
 /*
