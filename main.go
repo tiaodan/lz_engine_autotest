@@ -239,6 +239,7 @@ func todoList() {
 	logrus.Info("----------- id。txt 要支持正则表达式，因为id有可能是随机的")
 	logrus.Info("----------- 要写单元测试")
 	logrus.Info("----------- 把所有 if dronesDbEnable 改成if eles形式")
+	logrus.Info("----------- allDronesDb 存在数组数量不一致情况，如果excel某一行没写，allDronedB 那一行就少")
 	logrus.Info("----------- 待办事项 end")
 }
 
@@ -323,7 +324,7 @@ func programInit() {
 
 	// 步骤5：读取 all机型库文件
 	getAllDronesDbFromExcel(allDronesDbPath, "机型库")
-	logrus.Info("all机型库= ", allDronesDb)
+	logrus.Info("all机型库= len ", len(allDronesDb.Manufacture))
 
 	// 步骤6：判断机型库内容：，并写到all机型库文件里
 	checkAllDronesDbAndWrite2Excel()
@@ -551,21 +552,22 @@ func createFolderLink() string {
 	for index, path := range dronesDb.SigFolderPath {
 		// 信号路径存在，且重复数=1 才创建链接
 		if dronesDb.SigFolderPathExist[index] && dronesDb.SigFolderPathRepeatNum[index] == 1 {
-			brand := dronesDb.Brand[index]
-			model := dronesDb.Model[index]
-			freqBand := dronesDb.FreqBand[index]
-			freq := dronesDb.Freq[index]
-			// 构建文件夹路径
-			folderName := brand + "-" + model + "-" + freqBand + "-" + freq
-			folderPath := filepath.Join(currentDir, "xinhao-test", brand, model, freqBand, freq)
+			brand := strings.TrimSpace(dronesDb.Brand[index])
+			model := strings.TrimSpace(dronesDb.Model[index])
+			freqBand := strings.TrimSpace(dronesDb.FreqBand[index])
+			freq := strings.TrimSpace(dronesDb.Freq[index])
+			sigFolderName := strings.TrimSpace(dronesDb.SigFolderName[index])
+			// 构建文件夹路径 最后再-上 信号文件夹名称
+			folderName := brand + "-" + model + "-" + freqBand + "-" + freq + "-" + sigFolderName
+			folderPath := filepath.Join(currentDir, "xinhao-test", brand, model, freqBand, freq, sigFolderName)
 
 			// 创建子文件夹
 			err = os.MkdirAll(folderPath, 0755)
 			if err != nil {
-				log.Fatalf("无法创建子文件夹: %v", err)
+				log.Fatalf("无法创建子文件夹: %v", err) // 先注释，如果还不行，再修改代码
 			}
 			// 给文件夹关联上
-			// 参数1： 被链接的文件 oldname string ; 参数2：链接 newname string
+			// 参数1： 被链接的文件 oldname string ; 参数2：链接 newname string. newName 建议用id,因为id比较唯一
 			folderNamePath := filepath.Join(folderPath, folderName)
 
 			logrus.Info("创建软链接, oldName=  ", path)

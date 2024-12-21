@@ -432,6 +432,7 @@ func getAllDronesDbFromExcel(path string, sheetName string) DroneDB {
 		allDronesDb.Id = append(allDronesDb.Id, id)
 		// }
 		manufacture, err := file.GetCellValue(sheetName, "B"+strconv.Itoa(index)) // 厂商
+		manufacture = strings.TrimSpace(manufacture)
 		errorPanic(err)
 		if manufacture == "" { // 如果不判断发送最后一条空数据时，会报错。因为有 rows.Next()。会获取到最后一条数据，下一行的空数据
 			return allDronesDb
@@ -493,10 +494,12 @@ func getAllDronesDbFromExcel(path string, sheetName string) DroneDB {
 
 		seaFilePath, err := file.GetCellValue(sheetName, "O"+strconv.Itoa(index)) // seafile链接
 		errorPanic(err)
-		allDronesDb.SeaFilePath = append(dronesDb.SeaFilePath, seaFilePath)
+		logrus.Infof("seaFilePath 是否有空值？ seaFilePath= %v, len(allDronesDb.SeaFilePath)= %v ", seaFilePath, len(allDronesDb.SeaFilePath))
+		allDronesDb.SeaFilePath = append(allDronesDb.SeaFilePath, seaFilePath)
 
 		index++
 	}
+	logrus.Info("获取到 allDronesDb, len= ", len(allDronesDb.Manufacture))
 	return allDronesDb
 }
 

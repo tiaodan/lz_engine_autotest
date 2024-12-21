@@ -175,6 +175,7 @@ func createReportRelateSigReplayDronesDb() {
 		sigPath, err := file.GetCellValue(sheetName, "B"+strconv.Itoa(index)) // 具体机型路径
 		errorPanic(err)
 		if sigPath == "" { // 如果不判断发送最后一条空数据时，会报错。因为有 rows.Next()。会获取到最后一条数据，下一行的空数据
+			logrus.Info("createReportRelateSigReplayDronesDb(), 最后一条数据，退出")
 			break
 		}
 		sigPathMap[sigPath] = sigPath
@@ -268,13 +269,14 @@ func createReportRelateAllDronesDb() {
 	sheetName := "分析报告"
 	rows, err := file.Rows(sheetName)
 	errorPanic(err)
-	logrus.Infof("func=createReportRelateSigReplayDronesDb(), path= %v, sheetName=%v", reportFilePath, sheetName)
+	logrus.Infof("func=createReportRelateAllDronesDb(), path= %v, sheetName=%v", reportFilePath, sheetName)
 
 	index := 2
 	for rows.Next() {
 		sigPath, err := file.GetCellValue(sheetName, "B"+strconv.Itoa(index)) // 具体机型路径
 		errorPanic(err)
 		if sigPath == "" { // 如果不判断发送最后一条空数据时，会报错。因为有 rows.Next()。会获取到最后一条数据，下一行的空数据
+			logrus.Info("createReportRelateAllDronesDb(), 最后一条数据，退出")
 			break
 		}
 		sigPathMap[sigPath] = sigPath
@@ -306,16 +308,16 @@ func createReportRelateAllDronesDb() {
 		"信号文件夹路径是否存在", "机型.txt内容", "id.txt内容", "信号文件夹路径重复数量",
 		"要查询的机型", "查询结果", "异常原因", "总用时(单位: 分钟)"}
 	*/
-	logrus.Info("allDronesDb.SigFolderPath = ", allDronesDb.SigFolderPath)
+	logrus.Infof("allDronesDb. len(allDronesDb.SigFolderPath)=%v, len(allDronesDb.SeaFilePath=%v)", len(allDronesDb.SigFolderPath), len(allDronesDb.SeaFilePath))
 	for index, sigPath := range allDronesDb.SigFolderPath {
-		logrus.Infof("写入 sheet: 分析报告-关联机型库(最全机型库) , allDronesDb.SeaFilePath[index]= %v", allDronesDb.SeaFilePath)
+		logrus.Infof("写入 sheet: 分析报告-关联机型库(最全机型库) , index=%v, , len(allDronesDb.SigFolderPath)=%v, allDronesDb.SigFolderPath[index]= %v", index, len(allDronesDb.SeaFilePath), allDronesDb.SeaFilePath[index])
 		tableRow := []Any{allDronesDb.Id[index], allDronesDb.Manufacture[index], allDronesDb.Brand[index], allDronesDb.Model[index],
 			allDronesDb.Protocol[index], allDronesDb.Subtype[index], allDronesDb.FreqBand[index], allDronesDb.Freq[index],
 			allDronesDb.SigFolderName[index], allDronesDb.SigFolderPath[index], allDronesDb.SigFolderPathExist[index],
 			allDronesDb.DroneTxt[index], allDronesDb.DroneIdTxt[index], allDronesDb.SigFolderPathRepeatNum[index],
 			queryDroneMap[sigPath], queryResultMap[sigPath], errorReasonMap[sigPath], totalTimeMap[sigPath],
 			allDronesDb.SeaFilePath[index]}
-		logrus.Infof("写入 sheet: 分析报告-关联机型库(最全机型库) , index= %v, sigPath= %v, tableRow= %v", index, sigPath, &tableRow)
+		// logrus.Infof("写入 sheet: 分析报告-关联机型库(最全机型库) , index= %v, sigPath= %v, tableRow= %v", index, sigPath, &tableRow)
 		err = reportFile.SetSheetRow("分析报告-关联机型库(最全机型库)", "A"+strconv.Itoa(index+2), &tableRow)
 		errorPanic(err)
 	}
