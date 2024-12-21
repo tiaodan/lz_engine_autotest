@@ -241,8 +241,8 @@ func createReportRelateAllDronesDb() {
 	// 步骤2:  创建表头
 	// 创建表 - 分析报告
 	sheetIndex, _ := reportFile.NewSheet("分析报告-关联机型库(最全机型库)")
-	// 设置表为 活动窗口
-	reportFile.SetActiveSheet(sheetIndex)
+	// 设置表为 活动窗口 - 不设置，活动窗口是-回放信号表
+	// reportFile.SetActiveSheet(sheetIndex)
 	// 设置列宽
 	reportFile.SetColWidth("分析报告-关联机型库(最全机型库)", "A", "P", 15)
 	// reportFile.SetColWidth("分析报告", "A", "P", 15) // 没有自适应写法

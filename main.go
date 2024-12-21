@@ -18,6 +18,7 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
@@ -240,6 +241,9 @@ func todoList() {
 	logrus.Info("----------- 要写单元测试")
 	logrus.Info("----------- 把所有 if dronesDbEnable 改成if eles形式")
 	logrus.Info("----------- allDronesDb 存在数组数量不一致情况，如果excel某一行没写，allDronedB 那一行就少")
+	logrus.Info("----------- 对于不容易检测到的信号，待发送列表，创建2遍/3遍发送信号")
+	logrus.Info("----------- ready 阶段, 删除excel文件，会把子目录excel也删除")
+	logrus.Info("----------- 删除目录 xinhao-test 已创建的文件夹不会删除，仍然会保留")
 	logrus.Info("----------- 待办事项 end")
 }
 
@@ -501,24 +505,49 @@ func report() {
 
 // 删除当前目录 xlsx文件, txt文件
 func deleteHistroyFile() {
-	err := filepath.Walk(".", func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		if info.IsDir() {
+	/*
+		// 会递归删除当前目录及子目录  xlsx文件, txt文件
+		err := filepath.Walk(".", func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return err
+			}
+			if info.IsDir() {
+				return nil
+			}
+			if filepath.Ext(path) == ".xlsx" || filepath.Ext(path) == ".txt" {
+				fmt.Println("删除文件= ", path)
+				err := os.Remove(path)
+				if err != nil {
+					fmt.Println("删除文件出错:", err)
+				}
+			}
 			return nil
+		})
+		if err != nil {
+			fmt.Println("遍历目录出错:", err)
 		}
-		if filepath.Ext(path) == ".xlsx" || filepath.Ext(path) == ".txt" {
-			fmt.Println("删除文件= ", path)
-			err := os.Remove(path)
+	*/
+
+	// 只删除当前目录
+	// 获取当前目录下的文件列表
+	files, err := ioutil.ReadDir(".")
+	if err != nil {
+		fmt.Println("读取当前目录出错:", err)
+		return
+	}
+
+	for _, file := range files {
+		if file.IsDir() {
+			continue
+		}
+		if filepath.Ext(file.Name()) == ".xlsx" || filepath.Ext(file.Name()) == ".txt" {
+			filePath := filepath.Join(".", file.Name())
+			fmt.Println("删除文件= ", filePath)
+			err := os.Remove(filePath)
 			if err != nil {
 				fmt.Println("删除文件出错:", err)
 			}
 		}
-		return nil
-	})
-	if err != nil {
-		fmt.Println("遍历目录出错:", err)
 	}
 }
 
@@ -543,6 +572,7 @@ func createFolderLink() string {
 
 	// 先删除当前目录 xinhao-test目录
 	xinhaoTestPath := filepath.Join(currentDir, "xinhao-test")
+	logrus.Info("xinhaoTestPath 目录= ", xinhaoTestPath)
 	os.RemoveAll(xinhaoTestPath)
 	if err != nil {
 		log.Fatalf("无法删除文件夹 xinhao-test : %v", err)

@@ -22,6 +22,7 @@
 13. 命令行按6，dronesDb allDronesDb 会出现3个重复项，因为每次调用 ready feed report都会生成
 14. 从机型库读取 字段，要去除前后空格，否则很容易报错
 15. 修复report 总是报错 out of index
+16. ready 阶段, 删除excel文件，会把子目录excel也删除
 
 优化问题：
 1. 查询列表excel,一旦查询到一条符合条件的查询结果，就终止该信号文件夹查询，换下一个信号文件夹。
