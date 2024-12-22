@@ -530,8 +530,10 @@ func loopDir(dirPath string) {
 					}
 				}
 				logrus.Info("---------- loopDir(), 进入逻辑:  fileInfo.IsDir() || (fileInfo.Mode()&os.ModeSymlink != 0) ")
-				logrus.Debug("当前信号包路径: filepath.Join= ", fileAbsPath)
+				logrus.Info("当前信号包路径: filepath.Join= ", fileAbsPath)
 				// 如果是最后目录, 就不遍历了当前目录
+				logrus.Info("---------- dirIsEndDir(fileAbsPath) = ", dirIsEndDir(fileAbsPath))
+				logrus.Info("---------- !fileExist(fileAbsPath, 机型.txt) = ", !fileExist(fileAbsPath, "机型.txt"))
 				if dirIsEndDir(fileAbsPath) && !fileExist(fileAbsPath, "机型.txt") {
 					logrus.Info("---------- loopDir(), 进入逻辑:   dirIsEndDir(fileAbsPath) && !fileExist(fileAbsPath, 跳过当前循环")
 					continue
@@ -674,14 +676,15 @@ func loopFile(path string) {
 
 	// 获取文件扩展名
 	logrus.Debug("当前 sig = ", path)
+	logrus.Info("fileExistExt(path, .bvsp) = ", fileExistExt(path, ".bvsp"))
 	if fileExistExt(path, ".dat") || fileExistExt(path, ".bvsp") {
 		nowSigDirPath = filepath.Dir(path)
-		logrus.Debug("preSigDirPath= ", preSigDirPath)
-		logrus.Debug("nowSigDirPath= ", nowSigDirPath)
+		logrus.Info("preSigDirPath= ", preSigDirPath)
+		logrus.Info("nowSigDirPath= ", nowSigDirPath)
 		if preSigDirPath == "" {
 			preSigDirPath = nowSigDirPath
 			sigpkgList = append(sigpkgList, path)
-			logrus.Debug("preSigDirPath == 空,判断了1次？？？")
+			logrus.Info("preSigDirPath == 空,判断了1次？？？")
 			currentSigCount++ // 计数+1
 		} else if preSigDirPath == nowSigDirPath {
 			sigpkgList = append(sigpkgList, path)
@@ -691,7 +694,8 @@ func loopFile(path string) {
 				currentSigDirPath = nowSigDirPath
 			}
 			logrus.Debug("preSigDirPath == nowSigDirPat,判断了几次？？？=信号数量")
-			logrus.Debug("currentSigCount == ", currentSigCount)
+			logrus.Info("currentSigCount == ", currentSigCount)
+			logrus.Info("currentDirSigNum == ", currentDirSigNum)
 
 			// 判断是否是最后一个文件
 			if currentSigCount == currentDirSigNum {
@@ -701,6 +705,13 @@ func loopFile(path string) {
 				logrus.Info("排序后的 sigpkgList= ", sigpkgList)
 
 				logrus.Info("loopFile 到最后一个信号文件")
+				// 根据信号回放次数，把sigpkgList 循环添加几次
+				sigFolderReplayNum, err := strconv.Atoi(sigFolderReplayNumMap[currentSigDirPath])
+				errorEcho(err)
+				if sigFolderReplayNum > 1 {
+					sigpkgList = append(sigpkgList, sigpkgList...)
+				}
+
 				sigpkgList = append(sigpkgList, "[换文件夹]")
 				logrus.Infof("写入待发送信号列表, 厂家=%v, 信号包路径=%v, 要查询的无人机=%v, 待发送信号列表=%v", sigDir, currentSigDirPath, currentQueryTargetDrone, sigpkgList)
 				// writeExcelTableRowByArgs(sigDir, currentSigDirPath, currentQueryTargetDrone, sigpkgList)  // 原来的写法- sigpkgList

@@ -220,7 +220,7 @@ func dirIsEndDir(dirPath string) bool {
 		}
 		return true
 	}
-	return true
+	return false
 }
 
 /*
@@ -291,6 +291,10 @@ func getRowsFromExcel(path string, sheetName string) DroneDB {
 	rows, err := file.Rows(sheetName)
 	errorPanic(err)
 	logrus.Info("rows= ", rows)
+
+	// 将dronesDb 的内容存到一个map,方便后续调用
+	sigPathMap = make(map[string]string)            // 具体机型路径 map key value 类型 key 都是 sigPath，因为它唯一
+	sigFolderReplayNumMap = make(map[string]string) // 要查询的机型 map, key 都是 sigPath，因为它唯一
 
 	index := 2
 	for rows.Next() {
@@ -381,6 +385,18 @@ func getRowsFromExcel(path string, sheetName string) DroneDB {
 		errorPanic(err)
 		dronesDb.SeaFilePath = append(dronesDb.SeaFilePath, seaFilePath)
 
+		sigFolderReplayNum, err := file.GetCellValue(sheetName, "P"+strconv.Itoa(index)) // 信号重复次数
+		errorPanic(err)
+		sigFolderReplayNumStr := strings.TrimSpace(sigFolderReplayNum)
+		if sigFolderReplayNumStr == "" {
+			sigFolderReplayNumStr = "1"
+		}
+		dronesDb.SigFolderReplayNum = append(dronesDb.SigFolderReplayNum, sigFolderReplayNumStr)
+
+		// 设置全局变量 map
+		sigPathMap[sigFolderPath] = sigFolderPath
+		sigFolderReplayNumMap[sigFolderPath] = sigFolderReplayNumStr // 信号重复次数
+
 		index++
 	}
 	return dronesDb
@@ -424,6 +440,7 @@ func getAllDronesDbFromExcel(path string, sheetName string) DroneDB {
 			DroneIdTxt             []string `json:"droneIdTxt"`             // id.txt内容
 			SigFolderPathRepeatNum []int    `json:"sigFolderPathRepeatNum"` // 信号文件夹路径重复数量
 			SeaFilePath            []string `json:"seaFilePath"`       	    // seafile链接
+			SigFolderReplayNum     []string `json:"sigFolderReplayNum"`     // 信号文件夹重复回放次数
 		*/
 		// logrus.Info("getRowsFromExcel, 从excel读取内容, index= ", index)
 		id, err := file.GetCellValue(sheetName, "A"+strconv.Itoa(index)) // ID
@@ -494,8 +511,17 @@ func getAllDronesDbFromExcel(path string, sheetName string) DroneDB {
 
 		seaFilePath, err := file.GetCellValue(sheetName, "O"+strconv.Itoa(index)) // seafile链接
 		errorPanic(err)
-		logrus.Infof("seaFilePath 是否有空值？ seaFilePath= %v, len(allDronesDb.SeaFilePath)= %v ", seaFilePath, len(allDronesDb.SeaFilePath))
+		// logrus.Infof("seaFilePath 是否有空值？ seaFilePath= %v, len(allDronesDb.SeaFilePath)= %v ", seaFilePath, len(allDronesDb.SeaFilePath))
 		allDronesDb.SeaFilePath = append(allDronesDb.SeaFilePath, seaFilePath)
+
+		// 信号文件夹重复回放次数
+		sigFolderReplayNum, err := file.GetCellValue(sheetName, "P"+strconv.Itoa(index)) // 信号文件夹重复回放次数
+		errorPanic(err)
+		sigFolderReplayNumStr := strings.TrimSpace(sigFolderReplayNum)
+		if sigFolderReplayNumStr == "" {
+			sigFolderReplayNumStr = "1"
+		}
+		allDronesDb.SigFolderReplayNum = append(allDronesDb.SigFolderReplayNum, sigFolderReplayNum)
 
 		index++
 	}

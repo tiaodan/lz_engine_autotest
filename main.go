@@ -59,6 +59,7 @@ type DroneDB struct {
 	DroneIdTxt             []string `json:"droneIdTxt"`             // id.txt内容
 	SigFolderPathRepeatNum []int    `json:"sigFolderPathRepeatNum"` // 信号文件夹路径重复数量
 	SeaFilePath            []string `json:"seaFilePath"`            // 信号seafile链接
+	SigFolderReplayNum     []string `json:"sigFolderReplayNum"`     // 信号文件夹重复回放次数
 }
 
 // 全局变量
@@ -76,11 +77,13 @@ var (
 	mistakeFreqConfig  int    // 查询无人机频率 最大误差值 单位：Mhz 配置文件中写的
 
 	// 配置-机型库相关
-	dronesDb        DroneDB // 机型库结构体-回放信号用
-	allDronesDb     DroneDB // 机型库结构体-all
-	dronesDbEnable  bool    // 是否根据机型库，进行自动化引擎测试
-	dronesDbPath    string  // 机型库路径 - 回放信号用
-	allDronesDbPath string  // all机型库路径
+	dronesDb              DroneDB           // 机型库结构体-回放信号用
+	allDronesDb           DroneDB           // 机型库结构体-all
+	dronesDbEnable        bool              // 是否根据机型库，进行自动化引擎测试
+	dronesDbPath          string            // 机型库路径 - 回放信号用
+	allDronesDbPath       string            // all机型库路径
+	sigPathMap            map[string]string // 具体机型路径 map key value 类型 key 都是 sigPath，因为它唯一
+	sigFolderReplayNumMap map[string]string // 要查询的机型 map, key 都是 sigPath，因为它唯一
 
 	// 文件相关
 	preSendHistoryFilePath      string         // 预发送记录文件 路径
@@ -244,6 +247,7 @@ func todoList() {
 	logrus.Info("----------- 对于不容易检测到的信号，待发送列表，创建2遍/3遍发送信号")
 	logrus.Info("----------- ready 阶段, 删除excel文件，会把子目录excel也删除")
 	logrus.Info("----------- 删除目录 xinhao-test 已创建的文件夹不会删除，仍然会保留")
+	logrus.Info("----------- 第1遍回放不出来，可以把report excel false的改改，直接拿来用，再次回放")
 	logrus.Info("----------- 待办事项 end")
 }
 
@@ -407,10 +411,10 @@ func ready() {
 		// createPreSendHistoryFileHeaderTxt(preSendHistoryFileTxtPath) // txt文件表头
 		// createPreSendHistoryFileTxt(preSendHistoryFileTxtPath)       // txt文件,这个方法用不到，因为已经在上面写excel方法里createPreSendHistoryFile()，写了txt
 
-		logrus.Info("ready end 阶段, dronesDb.SigFolderPath = ", dronesDb.SigFolderPath)
-		logrus.Info("ready end 阶段, dronesDb = ", dronesDb)
-		logrus.Info("ready end 阶段, allDronesDb.SigFolderPath = ", allDronesDb.SigFolderPath)
-		logrus.Info("ready end 阶段, allDronesDb = ", allDronesDb)
+		logrus.Debug("ready end 阶段, dronesDb.SigFolderPath = ", dronesDb.SigFolderPath)
+		logrus.Debug("ready end 阶段, dronesDb = ", dronesDb)
+		logrus.Debug("ready end 阶段, allDronesDb.SigFolderPath = ", allDronesDb.SigFolderPath)
+		logrus.Debug("ready end 阶段, allDronesDb = ", allDronesDb)
 	}
 	logrus.Info("------------ ready 阶段 end")
 }
@@ -435,8 +439,8 @@ func feed() {
 	if dronesDbEnable {
 		logrus.Info("------------feed 阶段 start")
 
-		logrus.Info("feed start 阶段, dronesDb.SigFolderPath = ", dronesDb.SigFolderPath)
-		logrus.Info("feed start 阶段, dronesDb = ", dronesDb)
+		logrus.Debug("feed start 阶段, dronesDb.SigFolderPath = ", dronesDb.SigFolderPath)
+		logrus.Debug("feed start 阶段, dronesDb = ", dronesDb)
 
 		// 1. 创建或者打开文件
 		preSendHistoryFile, err = createOrOpenExcelFile(preSendHistoryFilePath)
@@ -447,8 +451,8 @@ func feed() {
 		queryTask()
 
 		logrus.Info("------------feed 阶段 end")
-		logrus.Info("feed end 阶段, dronesDb.SigFolderPath = ", dronesDb.SigFolderPath)
-		logrus.Info("feed end 阶段, dronesDb = ", dronesDb)
+		logrus.Debug("feed end 阶段, dronesDb.SigFolderPath = ", dronesDb.SigFolderPath)
+		logrus.Debug("feed end 阶段, dronesDb = ", dronesDb)
 	}
 
 }
@@ -480,10 +484,10 @@ func report() {
 		queryHistroyFile, err = createOrOpenExcelFile(queryHistroyFilePath)
 		errorPanic(err)
 
-		logrus.Info("report start 阶段, dronesDb.SigFolderPath = ", dronesDb.SigFolderPath)
-		logrus.Info("report start 阶段, dronesDb = ", dronesDb)
-		logrus.Info("report start 阶段, allDronesDb.SigFolderPath = ", allDronesDb.SigFolderPath)
-		logrus.Info("report start 阶段, allDronesDb = ", allDronesDb)
+		logrus.Debug("report start 阶段, dronesDb.SigFolderPath = ", dronesDb.SigFolderPath)
+		logrus.Debug("report start 阶段, dronesDb = ", dronesDb)
+		logrus.Debug("report start 阶段, allDronesDb.SigFolderPath = ", allDronesDb.SigFolderPath)
+		logrus.Debug("report start 阶段, allDronesDb = ", allDronesDb)
 		logrus.Info("--------- report 阶段 dronesDbEnable = ", dronesDbEnable)
 
 		// 步骤5：判断设备检测的是否对   - 原来的 report 环节
@@ -495,10 +499,12 @@ func report() {
 		createReportRelateAllDronesDb()
 
 		logrus.Info("--------------- report 阶段 end ---------------")
-		logrus.Info("report end 阶段, dronesDb.SigFolderPath = ", dronesDb.SigFolderPath)
-		logrus.Info("report end 阶段, dronesDb = ", dronesDb)
-		logrus.Info("report end 阶段, allDronesDb.SigFolderPath = ", allDronesDb.SigFolderPath)
-		logrus.Info("report end 阶段, allDronesDb = ", allDronesDb)
+		// logrus.Info("report end 阶段, dronesDb.SigFolderPath = ", dronesDb.SigFolderPath)
+		// logrus.Info("report end 阶段, dronesDb = ", dronesDb)
+		// logrus.Info("report end 阶段, allDronesDb.SigFolderPath = ", allDronesDb.SigFolderPath)
+		// logrus.Info("report end 阶段, allDronesDb = ", allDronesDb)
+		logrus.Debug("report end 阶段, dronesDb.SigFolderPath.len = ", len(dronesDb.SigFolderPath))
+		logrus.Debug("report end 阶段, allDronesDb.SigFolderPath.len = ", len(allDronesDb.SigFolderPath))
 	}
 
 }

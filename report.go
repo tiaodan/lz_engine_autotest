@@ -149,7 +149,8 @@ func createReportRelateSigReplayDronesDb() {
 	tableHeaders := []Any{"ID", "厂家", "品牌", "型号", "协议(drones.csv)", "协议子类型(drones.csv)", "频段",
 		"详细频率", "信号文件夹名称(品牌-型号-频段-详细频率)", "信号文件夹路径",
 		"信号文件夹路径是否存在", "机型.txt内容", "id.txt内容", "信号文件夹路径重复数量",
-		"要查询的机型", "查询结果", "异常原因", "总用时(单位: 分钟)", "seafile链接"}
+		"要查询的机型", "查询结果", "异常原因", "总用时(单位: 分钟)",
+		"seafile链接", "信号回放次数"}
 	err = reportFile.SetSheetRow("分析报告-关联机型库(已回放信号)", "A1", &tableHeaders)
 	errorPanic(err)
 
@@ -205,17 +206,18 @@ func createReportRelateSigReplayDronesDb() {
 		tableHeaders := []Any{"ID", "厂家", "品牌", "型号", "协议(drones.csv)","协议子类型(drones.csv)" "频段",
 		"详细频率", "信号文件夹名称(品牌-型号-频段-详细频率)", "信号文件夹路径",
 		"信号文件夹路径是否存在", "机型.txt内容", "id.txt内容", "信号文件夹路径重复数量",
-		"要查询的机型", "查询结果", "异常原因", "总用时(单位: 分钟)"}
+		"要查询的机型", "查询结果", "异常原因", "总用时(单位: 分钟)",
+		"seafile链接", "信号重复回放次数"}
 	*/
 	logrus.Info("dronesDb.SigFolderPath = ", dronesDb.SigFolderPath)
 	for index, sigPath := range dronesDb.SigFolderPath {
-		logrus.Infof("写入 sheet: 分析报告-关联机型库(已回放信号) , index= %v, sigPath= %v", index, sigPath)
+		// logrus.Infof("写入 sheet: 分析报告-关联机型库(已回放信号) , index= %v, sigPath= %v", index, sigPath)
 		tableRow := []Any{dronesDb.Id[index], dronesDb.Manufacture[index], dronesDb.Brand[index], dronesDb.Model[index],
 			dronesDb.Protocol[index], dronesDb.Subtype[index], dronesDb.FreqBand[index], dronesDb.Freq[index],
 			dronesDb.SigFolderName[index], dronesDb.SigFolderPath[index], dronesDb.SigFolderPathExist[index],
 			dronesDb.DroneTxt[index], dronesDb.DroneIdTxt[index], dronesDb.SigFolderPathRepeatNum[index],
 			queryDroneMap[sigPath], queryResultMap[sigPath], errorReasonMap[sigPath], totalTimeMap[sigPath],
-			dronesDb.SeaFilePath[index]}
+			dronesDb.SeaFilePath[index], dronesDb.SigFolderReplayNum[index]}
 		err = reportFile.SetSheetRow("分析报告-关联机型库(已回放信号)", "A"+strconv.Itoa(index+2), &tableRow)
 		errorPanic(err)
 	}
@@ -240,7 +242,8 @@ func createReportRelateAllDronesDb() {
 
 	// 步骤2:  创建表头
 	// 创建表 - 分析报告
-	sheetIndex, _ := reportFile.NewSheet("分析报告-关联机型库(最全机型库)")
+	reportFile.NewSheet("分析报告-关联机型库(最全机型库)")
+	// sheetIndex, _ := reportFile.NewSheet("分析报告-关联机型库(最全机型库)")
 	// 设置表为 活动窗口 - 不设置，活动窗口是-回放信号表
 	// reportFile.SetActiveSheet(sheetIndex)
 	// 设置列宽
@@ -250,7 +253,8 @@ func createReportRelateAllDronesDb() {
 	tableHeaders := []Any{"ID", "厂家", "品牌", "型号", "协议(drones.csv)", "协议子类型(drones.csv)", "频段",
 		"详细频率", "信号文件夹名称(品牌-型号-频段-详细频率)", "信号文件夹路径",
 		"信号文件夹路径是否存在", "机型.txt内容", "id.txt内容", "信号文件夹路径重复数量",
-		"要查询的机型", "查询结果", "异常原因", "总用时(单位: 分钟)", "seafile链接"}
+		"要查询的机型", "查询结果", "异常原因", "总用时(单位: 分钟)",
+		"seafile链接", "信号重复回放次数"}
 	err = reportFile.SetSheetRow("分析报告-关联机型库(最全机型库)", "A1", &tableHeaders)
 	errorPanic(err)
 
@@ -310,13 +314,13 @@ func createReportRelateAllDronesDb() {
 	*/
 	logrus.Infof("allDronesDb. len(allDronesDb.SigFolderPath)=%v, len(allDronesDb.SeaFilePath=%v)", len(allDronesDb.SigFolderPath), len(allDronesDb.SeaFilePath))
 	for index, sigPath := range allDronesDb.SigFolderPath {
-		logrus.Infof("写入 sheet: 分析报告-关联机型库(最全机型库) , index=%v, , len(allDronesDb.SigFolderPath)=%v, allDronesDb.SigFolderPath[index]= %v", index, len(allDronesDb.SeaFilePath), allDronesDb.SeaFilePath[index])
+		// logrus.Infof("写入 sheet: 分析报告-关联机型库(最全机型库) , index=%v, , len(allDronesDb.SigFolderPath)=%v, allDronesDb.SigFolderPath[index]= %v", index, len(allDronesDb.SeaFilePath), allDronesDb.SeaFilePath[index])
 		tableRow := []Any{allDronesDb.Id[index], allDronesDb.Manufacture[index], allDronesDb.Brand[index], allDronesDb.Model[index],
 			allDronesDb.Protocol[index], allDronesDb.Subtype[index], allDronesDb.FreqBand[index], allDronesDb.Freq[index],
 			allDronesDb.SigFolderName[index], allDronesDb.SigFolderPath[index], allDronesDb.SigFolderPathExist[index],
 			allDronesDb.DroneTxt[index], allDronesDb.DroneIdTxt[index], allDronesDb.SigFolderPathRepeatNum[index],
 			queryDroneMap[sigPath], queryResultMap[sigPath], errorReasonMap[sigPath], totalTimeMap[sigPath],
-			allDronesDb.SeaFilePath[index]}
+			allDronesDb.SeaFilePath[index], allDronesDb.SigFolderReplayNum[index]}
 		// logrus.Infof("写入 sheet: 分析报告-关联机型库(最全机型库) , index= %v, sigPath= %v, tableRow= %v", index, sigPath, &tableRow)
 		err = reportFile.SetSheetRow("分析报告-关联机型库(最全机型库)", "A"+strconv.Itoa(index+2), &tableRow)
 		errorPanic(err)
@@ -364,11 +368,11 @@ func checkAlgorithmWhereQueryResult(boolResultDroneNameEqualList []string, boolR
 		}
 	}
 	if droneNameNotEqualNum == len(boolResultDroneNameEqualList) {
-		errorReason = "机型不匹配"
+		errorReason = "未检测到该机型"
 	} else if boolResultNoMistakeNum == len(boolResultNoMistakeList) && boolResultHasMistakeNum == len(boolResultHasMistakeList) {
 		errorReason = "id不匹配, 或者频率误差<10M"
 	} else {
-		errorReason = "或者频率误差<10M"
+		errorReason = "频率误差<10M"
 	}
 	return false, errorReason
 

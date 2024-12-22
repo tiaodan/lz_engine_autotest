@@ -92,8 +92,8 @@ func sendTask() {
 		// }
 
 		// copy过来的代码
-		fmt.Printf("发送信号, index = %v, tasklist= %v \n", i, sigpkg)
-		logrus.Infof("发送信号, index = %v, tasklist= %v ", i, sigpkg)
+		fmt.Printf("------------------------------------- 发送信号, index = %v, tasklist= %v \n", i, sigpkg)
+		logrus.Infof("------------------------------------- 发送信号, index = %v, tasklist= %v ", i, sigpkg)
 		if sigpkg == "[换文件夹]" {
 			logrus.Infof("index=%v, 【换文件夹】切换信号文件夹标志 changeFolderFlag =%v, changeFolderFlagNum=%v", i, changeFolderFlag, changeFolderFlagNum)
 			/*
