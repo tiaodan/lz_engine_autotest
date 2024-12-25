@@ -233,24 +233,42 @@ func checkAlgorithmWhereFreqHasMistake(queriedDrones []Drone, targetDrones []Dro
 	// 多个id的写法 funk.Contains() arg1: list arg2: string (要是是个数组，不行)
 	if len(targetDrones) == 1 { // targetDrone 数组只有一个数据
 		for _, queriedDrone := range queriedDrones {
-			// 判断查询到的飞机列表,id是否相等
-			if funk.Contains(targetDrones[0].Id, queriedDrone.Id[0]) {
+			// 分id.txt 内容是 随机 和具体id情况
+			if funk.Contains(targetDrones[0].Id, "随机") {
 				// 判断频率,误差是否 <=10 Mhz
 				freqMistake := math.Abs(float64(queriedDrone.FreqList) - float64(targetDrones[0].FreqList))
 				if freqMistake <= float64(mistakeFreqConfig*1000) {
 					return true
+				}
+			} else {
+				// 判断查询到的飞机列表,id是否相等
+				if funk.Contains(targetDrones[0].Id, queriedDrone.Id[0]) {
+					// 判断频率,误差是否 <=10 Mhz
+					freqMistake := math.Abs(float64(queriedDrone.FreqList) - float64(targetDrones[0].FreqList))
+					if freqMistake <= float64(mistakeFreqConfig*1000) {
+						return true
+					}
 				}
 			}
 		}
 	} else if len(targetDrones) > 1 {
 		for _, queriedDrone := range queriedDrones {
 			for _, targetDrone := range targetDrones {
-				// 判断查询到的飞机列表,id是否相等
-				if funk.Contains(targetDrone.Id, queriedDrone.Id[0]) {
+				// 分id.txt 内容是 随机 和具体id情况
+				if funk.Contains(targetDrone.Id, "随机") {
 					// 判断频率,误差是否 <=10 Mhz
 					freqMistake := math.Abs(float64(queriedDrone.FreqList) - float64(targetDrone.FreqList))
 					if freqMistake <= float64(mistakeFreqConfig*1000) {
 						return true
+					}
+				} else {
+					// 判断查询到的飞机列表,id是否相等
+					if funk.Contains(targetDrone.Id, queriedDrone.Id[0]) {
+						// 判断频率,误差是否 <=10 Mhz
+						freqMistake := math.Abs(float64(queriedDrone.FreqList) - float64(targetDrone.FreqList))
+						if freqMistake <= float64(mistakeFreqConfig*1000) {
+							return true
+						}
 					}
 				}
 			}
@@ -281,22 +299,38 @@ func checkAlgorithmWhereFreqNoMistake(queriedDrones []Drone, targetDrones []Dron
 	// 多个id的写法 funk.Contains() arg1: list arg2: string (要是是个数组，不行)
 	if len(targetDrones) == 1 { // targetDrone 数组只有一个数据
 		for _, queriedDrone := range queriedDrones {
-			// 判断查询到的飞机列表,id是否相等
-			if funk.Contains(targetDrones[0].Id, queriedDrone.Id[0]) {
+			// 分id.txt 内容是 随机 和具体id情况
+			if funk.Contains(targetDrones[0].Id, "随机") {
 				// 判断频率,误差是否 <=0 Mhz
 				if queriedDrone.FreqList == targetDrones[0].FreqList {
 					return true
+				}
+			} else {
+				// 判断查询到的飞机列表,id是否相等
+				if funk.Contains(targetDrones[0].Id, queriedDrone.Id[0]) {
+					// 判断频率,误差是否 <=0 Mhz
+					if queriedDrone.FreqList == targetDrones[0].FreqList {
+						return true
+					}
 				}
 			}
 		}
 	} else if len(targetDrones) > 1 {
 		for _, queriedDrone := range queriedDrones {
 			for _, targetDrone := range targetDrones {
-				// 判断查询到的飞机列表,id是否相等
-				if funk.Contains(targetDrone.Id, queriedDrone.Id[0]) {
+				// 分id.txt 内容是 随机 和具体id情况
+				if funk.Contains(targetDrone.Id, "随机") {
 					// 判断频率,误差是否 <=0 Mhz
 					if queriedDrone.FreqList == targetDrone.FreqList {
 						return true
+					}
+				} else {
+					// 判断查询到的飞机列表,id是否相等
+					if funk.Contains(targetDrone.Id, queriedDrone.Id[0]) {
+						// 判断频率,误差是否 <=0 Mhz
+						if queriedDrone.FreqList == targetDrone.FreqList {
+							return true
+						}
 					}
 				}
 			}

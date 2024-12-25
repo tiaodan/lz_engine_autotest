@@ -370,9 +370,9 @@ func checkAlgorithmWhereQueryResult(boolResultDroneNameEqualList []string, boolR
 	if droneNameNotEqualNum == len(boolResultDroneNameEqualList) {
 		errorReason = "未检测到该机型"
 	} else if boolResultNoMistakeNum == len(boolResultNoMistakeList) && boolResultHasMistakeNum == len(boolResultHasMistakeList) {
-		errorReason = "id不匹配, 或者频率误差<10M"
+		errorReason = "id不匹配, 或者频率误差<" + strconv.Itoa(mistakeFreqConfig) + "M"
 	} else {
-		errorReason = "频率误差<10M"
+		errorReason = "频率误差<" + strconv.Itoa(mistakeFreqConfig) + "M"
 	}
 	return false, errorReason
 
