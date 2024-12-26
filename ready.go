@@ -708,8 +708,11 @@ func loopFile(path string) {
 				// 根据信号回放次数，把sigpkgList 循环添加几次
 				sigFolderReplayNum, err := strconv.Atoi(sigFolderReplayNumMap[currentSigDirPath])
 				errorEcho(err)
-				if sigFolderReplayNum > 1 {
-					sigpkgList = append(sigpkgList, sigpkgList...)
+				logrus.Info("回放次数，sigFolderReplayNum= ", sigFolderReplayNum)
+
+				sigpkgListOneFolder := sigpkgList
+				for range sigFolderReplayNum {
+					sigpkgList = append(sigpkgList, sigpkgListOneFolder...)
 				}
 
 				sigpkgList = append(sigpkgList, "[换文件夹]")
