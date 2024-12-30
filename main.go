@@ -85,6 +85,11 @@ var (
 	sigPathMap            map[string]string // 具体机型路径 map key value 类型 key 都是 sigPath，因为它唯一
 	sigFolderReplayNumMap map[string]string // 要查询的机型 map, key 都是 sigPath，因为它唯一
 
+	// 配置相关-并发
+	concurrencyEnable       bool //  并发开关。如果打开了，同时发送N个信号
+	concurrencyNum          int  //  并发个数
+	concurrencySigRepeatNum int  //  信号发送循环次数
+
 	// 文件相关
 	preSendHistoryFilePath      string         // 预发送记录文件 路径
 	preSendHistoryFileSheetName string         // 预发送记录文件 sheetName = "待发送列表"
@@ -263,6 +268,7 @@ func main() {
 	fmt.Println("4 - 一键执行步骤123")
 	fmt.Println("5 - delete history file")
 	fmt.Println("6 - 一键执行 步骤5、4")
+	fmt.Println("7 - 并发发送信号")
 	fmt.Println("0 - 退出")
 	input, _ := reader.ReadString('\n')
 	input = strings.TrimSpace(input)
@@ -298,6 +304,11 @@ func main() {
 		ready()
 		feed()
 		report()
+	case "7":
+		logrus.Info("并发发送信号")
+		// 执行对应的命令代码
+		ready()
+		concurrencyFeed()
 	case "0":
 		logrus.Info("退出程序")
 		return
@@ -453,6 +464,31 @@ func feed() {
 		logrus.Info("------------feed 阶段 end")
 		logrus.Debug("feed end 阶段, dronesDb.SigFolderPath = ", dronesDb.SigFolderPath)
 		logrus.Debug("feed end 阶段, dronesDb = ", dronesDb)
+	}
+
+}
+
+// 功能 并发 feed 流程
+func concurrencyFeed() {
+	// 启用 机型库 写法
+	if dronesDbEnable {
+		logrus.Info("------------feed 阶段 start")
+
+		logrus.Debug("feed start 阶段, dronesDb.SigFolderPath = ", dronesDb.SigFolderPath)
+		logrus.Debug("feed start 阶段, dronesDb = ", dronesDb)
+
+		// 1. 创建或者打开文件
+		preSendHistoryFile, err = createOrOpenExcelFile(preSendHistoryFilePath)
+		errorPanic(err)
+
+		// 步骤3：发送信号      - 原来的 feed 环节
+		concurrencySendTask()
+
+		logrus.Info("------------feed 阶段 end")
+		logrus.Debug("feed end 阶段, dronesDb.SigFolderPath = ", dronesDb.SigFolderPath)
+		logrus.Debug("feed end 阶段, dronesDb = ", dronesDb)
+	} else {
+		logrus.Error("------------feed 阶段 请打开机型库开关: dronesDbEnable")
 	}
 
 }

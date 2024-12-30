@@ -51,3 +51,12 @@ droneDbEnable=true
 dronesDbPath=C:\Users\root1\Desktop\无人机实测支持列表_2024_12_11.xlsx
 # 最全机型库文件路径
 allDronesDbPath=C:\Users\root1\Desktop\all无人机实测支持列表.xlsx
+
+# 并发相关
+[concurrency]
+# 并发开关。如果打开了，同时发送N个信号
+concurrencyEnable=false
+# 并发个数
+concurrencyNum=10
+# 信号发送循环次数
+concurrencySigRepeatNum=20

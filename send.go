@@ -11,6 +11,7 @@ import (
 	"net"
 	"os"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -158,11 +159,87 @@ func sendTask() {
 	logrus.Info("发送完毕，发送信号, SendIsEnd")
 }
 
+// 并发 发送信号task
+func concurrencySendTask() {
+	fmt.Println("----进入方法: 开启发送任务, sendTask()")
+
+	// 获取信号列表， from 待发送列表excel
+	fmt.Println("----进入方法: 开启发送任务, sendTask(), preSendHistoryFilePath=", preSendHistoryFilePath)
+	sigpkgList = getSigpkgListFromPreSendHistoryFile(preSendHistoryFilePath, "待发送列表")
+	logrus.Info("func=sendTask(), sigpkgList= ", sigpkgList)
+	droneObjList = getQueryDroneFromPreSendHistoryFile(preSendHistoryFilePath, "待发送列表")
+	logrus.Debug("func=sendTask(), droneObjList= ", droneObjList)
+	sigFolderPathList = getSigFolderPathFromPreSendHistoryFile(preSendHistoryFilePath, "待发送列表")
+	logrus.Debug("func=sendTask(), sigFolderPathList= ", sigFolderPathList)
+
+	sendInit()
+	// changeFolderFlag := false // 换文件夹标志
+	var concurrencySigpkgListArr [][]string
+	var concurrencySigpkgList []string
+	for _, sigpkg := range sigpkgList {
+		if sigpkg == "[换文件夹]" {
+			concurrencySigpkgListArr = append(concurrencySigpkgListArr, concurrencySigpkgList)
+			concurrencySigpkgList = []string{} // 重置
+		} else {
+			concurrencySigpkgList = append(concurrencySigpkgList, sigpkg)
+		}
+	}
+	// 并发发送
+	var wg sync.WaitGroup
+	/*
+		// 非并发写法
+		for _, concurrencySigpkgList := range concurrencySigpkgListArr {
+			wg.Add(1) // 增加 WaitGroup 计数
+			for _, sigpkg := range concurrencySigpkgList {
+				count, err := send(sigpkg)
+				logrus.Debugf("发送成功%v字节", count)
+				if err != nil {
+					logrus.Error("发送失败, ")
+				} else {
+					logrus.Infof("发送成功, sig= %v", sigpkg)
+				}
+			}
+		}
+	*/
+	// 并发写法
+	for index, concurrencySigpkgList := range concurrencySigpkgListArr {
+		wg.Add(1) // 增加 WaitGroup 计数
+
+		go func(sigpkgList []string) {
+			defer wg.Done() // 减少 WaitGroup 计数
+
+			for range concurrencySigRepeatNum { // 循环发送次数
+				for _, sigpkg := range sigpkgList {
+					count, err := send(sigpkg)
+					logrus.Debugf("发送成功, sig= %v, 字节数= %v", sigpkg, count)
+					if err != nil {
+						logrus.Infof("发送失败, sig= %v", sigpkg)
+					} else {
+						logrus.Infof("发送成功, sig= %v", sigpkg)
+					}
+				}
+			}
+		}(concurrencySigpkgList)
+		if index+1 > concurrencyNum { // > 并发数量, 退出循环
+			break
+		}
+		logrus.Info("创建完一个发送线程, num =", strconv.Itoa(index+1))
+	}
+
+	// 等待所有 goroutine 结束
+	wg.Wait()
+
+	connTCP.Close()
+	fmt.Println("发送完毕")
+	sendIsEnd <- any // 发送信号：发送程序结束
+	logrus.Info("发送完毕，发送信号, SendIsEnd")
+}
+
 func send(url string) (int, error) {
 	var count int
 	bytes, err := os.ReadFile(url)
 	errorPanic(err)
-	count, err = connTCP.Write(bytes)
+	count, err = connTCP.Write(bytes) // count 是写入tcp的字节数
 	if err != nil {
 		err2 := connTCP.Close()
 		errorPanic(err2)

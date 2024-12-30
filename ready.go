@@ -52,14 +52,17 @@ func readConfig(configName string, configSuffix string, configRelPath string) {
 	err = viper.ReadInConfig()
 	errorPanic(err) // 出了异常就退出
 
-	devIp = viper.GetString("network.devIp")                       // 设备ip
-	sigDir = viper.GetString("signal.sigDir")                      // 信号包文件夹路径
-	sigPkgSendInterval = viper.GetInt("signal.sigPkgSendInterval") // 发送间隔时间:毫秒/MB,按信号包大小
-	cdFolderInterval = viper.GetInt("signal.cdFolderInterval")     // 换文件夹等待时间:秒
-	queryDroneInterval = viper.GetInt("signal.queryDroneInterval") // 查询无人机间隔时间:秒
-	logLevel = viper.GetString("log.logLevel")                     // 日志级别 只认：debug 、info 、 error，不区分大小写。写其它的都按debug处理
-	dronesDbEnable = viper.GetBool("dronesdb.dronesdbenable")      // 是否启用机型库
-	dronesDbPath = viper.GetString("dronesdb.dronesdbpath")        // 机型库路径
+	devIp = viper.GetString("network.devIp")                           // 设备ip
+	sigDir = viper.GetString("signal.sigDir")                          // 信号包文件夹路径
+	sigPkgSendInterval = viper.GetInt("signal.sigPkgSendInterval")     // 发送间隔时间:毫秒/MB,按信号包大小
+	cdFolderInterval = viper.GetInt("signal.cdFolderInterval")         // 换文件夹等待时间:秒
+	queryDroneInterval = viper.GetInt("signal.queryDroneInterval")     // 查询无人机间隔时间:秒
+	logLevel = viper.GetString("log.logLevel")                         // 日志级别 只认：debug 、info 、 error，不区分大小写。写其它的都按debug处理
+	dronesDbEnable = viper.GetBool("dronesdb.dronesdbenable")          // 是否启用机型库
+	dronesDbPath = viper.GetString("dronesdb.dronesdbpath")            // 机型库路径
+	allDronesDbPath = viper.GetString("dronesdb.alldronesdbpath")      // all机型库路径
+	concurrencyEnable = viper.GetBool("concurrency.concurrencyEnable") // 并发开关。如果打开了，同时发送N个信号
+	concurrencyNum = viper.GetInt("concurrency.concurrencyNum")        // 并发个数
 
 	// 打印配置
 	logrus.Info("配置 devIp (设备ip)= ", devIp)
@@ -88,17 +91,20 @@ func readLowerConfig(configName string, configSuffix string, configRelPath strin
 	err = viper.ReadInConfig()
 	errorPanic(err) // 出了异常就退出
 
-	devIp = viper.GetString("network.devip")                       // 设备ip
-	sigDir = viper.GetString("signal.sigdir")                      // 信号包文件夹路径
-	sigPkgSendInterval = viper.GetInt("signal.sigpkgsendinterval") // 发送间隔时间:毫秒/MB,按信号包大小
-	cdFolderInterval = viper.GetInt("signal.cdfolderinterval")     // 换文件夹等待时间:秒
-	queryDroneInterval = viper.GetInt("signal.querydroneinterval") // 查询无人机间隔时间:秒
-	logLevel = viper.GetString("log.loglevel")                     // 日志级别 只认：debug 、info 、 error，不区分大小写。写其它的都按debug处理
-	startTimeStr = viper.GetString("time.starttime")               // 开始时间str
-	mistakeFreqConfig = viper.GetInt("query.mistakefreq")          // 查询无人机频率 最大误差值 单位：Mhz
-	dronesDbEnable = viper.GetBool("dronesdb.dronesdbenable")      // 是否使用机型库，进行自动化测试
-	dronesDbPath = viper.GetString("dronesdb.dronesdbpath")        // 机型库路径，一般用户回放部分筛选信号
-	allDronesDbPath = viper.GetString("dronesdb.alldronesdbpath")  // all机型库路径
+	devIp = viper.GetString("network.devip")                                      // 设备ip
+	sigDir = viper.GetString("signal.sigdir")                                     // 信号包文件夹路径
+	sigPkgSendInterval = viper.GetInt("signal.sigpkgsendinterval")                // 发送间隔时间:毫秒/MB,按信号包大小
+	cdFolderInterval = viper.GetInt("signal.cdfolderinterval")                    // 换文件夹等待时间:秒
+	queryDroneInterval = viper.GetInt("signal.querydroneinterval")                // 查询无人机间隔时间:秒
+	logLevel = viper.GetString("log.loglevel")                                    // 日志级别 只认：debug 、info 、 error，不区分大小写。写其它的都按debug处理
+	startTimeStr = viper.GetString("time.starttime")                              // 开始时间str
+	mistakeFreqConfig = viper.GetInt("query.mistakefreq")                         // 查询无人机频率 最大误差值 单位：Mhz
+	dronesDbEnable = viper.GetBool("dronesdb.dronesdbenable")                     // 是否使用机型库，进行自动化测试
+	dronesDbPath = viper.GetString("dronesdb.dronesdbpath")                       // 机型库路径，一般用户回放部分筛选信号
+	allDronesDbPath = viper.GetString("dronesdb.alldronesdbpath")                 // all机型库路径
+	concurrencyEnable = viper.GetBool("concurrency.concurrencyenable")            // 并发开关。如果打开了，同时发送N个信号
+	concurrencyNum = viper.GetInt("concurrency.concurrencynum")                   // 并发个数
+	concurrencySigRepeatNum = viper.GetInt("concurrency.concurrencysigrepeatnum") // 信号发送循环次数
 
 	// 读取配置开始时间
 	preSendHistoryFilePath = viper.GetString("file.presendhistoryfilepath")
@@ -123,6 +129,9 @@ func readLowerConfig(configName string, configSuffix string, configRelPath strin
 	logrus.Info("配置 dronesDbEnable (是否启用机型库)= ", viper.GetString("dronesdb.dronesdbenable"))
 	logrus.Info("配置 dronesDbPath (回放信号机型库路径)= ", dronesDbPath)
 	logrus.Info("配置 allDronesDbPath (机型库路径)= ", allDronesDbPath)
+	logrus.Info("配置 concurrencyEnable (并发开关)= ", concurrencyEnable)
+	logrus.Info("配置 concurrencyNum (并发个数)= ", concurrencyNum)
+	logrus.Info("配置 concurrencySigRepeatNum (信号发送循环次数)= ", concurrencySigRepeatNum)
 }
 
 /*
@@ -711,7 +720,7 @@ func loopFile(path string) {
 				logrus.Info("回放次数，sigFolderReplayNum= ", sigFolderReplayNum)
 
 				sigpkgListOneFolder := sigpkgList
-				for range sigFolderReplayNum {
+				for range sigFolderReplayNum - 1 { // 因为累加前，已经有一份自己，所以-1
 					sigpkgList = append(sigpkgList, sigpkgListOneFolder...)
 				}
 
