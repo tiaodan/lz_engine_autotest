@@ -51,6 +51,8 @@ droneDbEnable=true
 dronesDbPath=C:\Users\root1\Desktop\无人机实测支持列表_2024_12_11.xlsx
 # 最全机型库文件路径
 allDronesDbPath=C:\Users\root1\Desktop\all无人机实测支持列表.xlsx
+# 是否从配置文件夹 读取id.txt 机型.txt
+readFromConfigFolderEnable=true
 
 # 并发相关
 [concurrency]

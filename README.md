@@ -25,6 +25,9 @@
 16. ready 阶段, 删除excel文件，会把子目录excel也删除
 17. 修改回放次数，之前版本，待发送列表，只写入2次回放次数
 18. 修改创建待发送列表时，写的循环2次，实际写入表里是3次
+19. 并发发送，会报错： level=panic msg= 出异常了, 程序退出! err=close tcp 192.168.85.25:51995->192.168.84.79:8000: use of closed network connection
+20. windows 的路径，ubuntu读取不到
+21. 可以不用在信号目录，创建id.txt，机型.txt，可以通过excel自行在 信号目录-config创建id.txt，机型.txt
 
 优化问题：
 1. 查询列表excel,一旦查询到一条符合条件的查询结果，就终止该信号文件夹查询，换下一个信号文件夹。
@@ -33,7 +36,7 @@
 2. 配置文件加 日志级别打印。日志级别 只认：debug 、info 、 error，不区分大小写。写其它的都按debug处理
 3. 查询列表excel,加上当前时间，用于计算总时间
 4. 解决：logrus.Info("----------- 就一个文件夹的时候，会一直阻塞。不打印：停止查询, sendIsEnd。无法进入生成报告步骤. 原因：是因为只有一个信号文件夹时， 代码没收到终止信号, 一直阻塞。但是按理说queryTask()应该一直查呀。是因为收到userEndSend信号, 才发送userEndQuery信号, 查询任务没收到endQyery信号，所以一直阻塞。阻塞在queryTask了")
-	解决方法：send.go case <-userChangeQuerySigFolder:这里判断如果是最后一条信号，执行 case <-userEndSend: 逻辑
+解决方法：send.go case <-userChangeQuerySigFolder:这里判断如果是最后一条信号，执行 case <-userEndSend: 逻辑
 5. 查询到目标飞机后，不跳到下一个信号包情况下，切换文件夹时间 - 设备管理-控制器的无人机超时时间 = 4秒，配置查询间隔2秒，比较合适。这样查询列表excel,显示的刚刚好（查询到的信号，不会显示在下一个信号）
 6. 优化, 查询excel, 机型名称匹配+id匹配+误差范围内, 才发切换文件夹信号
 7. 配置项加上误差值, 本版本在 [query] mistakeNum,单位Mhz

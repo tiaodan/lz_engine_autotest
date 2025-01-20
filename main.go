@@ -77,13 +77,14 @@ var (
 	mistakeFreqConfig  int    // 查询无人机频率 最大误差值 单位：Mhz 配置文件中写的
 
 	// 配置-机型库相关
-	dronesDb              DroneDB           // 机型库结构体-回放信号用
-	allDronesDb           DroneDB           // 机型库结构体-all
-	dronesDbEnable        bool              // 是否根据机型库，进行自动化引擎测试
-	dronesDbPath          string            // 机型库路径 - 回放信号用
-	allDronesDbPath       string            // all机型库路径
-	sigPathMap            map[string]string // 具体机型路径 map key value 类型 key 都是 sigPath，因为它唯一
-	sigFolderReplayNumMap map[string]string // 要查询的机型 map, key 都是 sigPath，因为它唯一
+	dronesDb                   DroneDB           // 机型库结构体-回放信号用
+	allDronesDb                DroneDB           // 机型库结构体-all
+	dronesDbEnable             bool              // 是否根据机型库，进行自动化引擎测试
+	dronesDbPath               string            // 机型库路径 - 回放信号用
+	allDronesDbPath            string            // all机型库路径
+	sigPathMap                 map[string]string // 具体机型路径 map key value 类型 key 都是 sigPath，因为它唯一
+	sigFolderReplayNumMap      map[string]string // 要查询的机型 map, key 都是 sigPath，因为它唯一
+	readFromConfigFolderEnable bool              // 是否从配置文件夹 读取id.txt 机型.txt
 
 	// 配置相关-并发
 	concurrencyEnable       bool //  并发开关。如果打开了，同时发送N个信号
@@ -253,6 +254,7 @@ func todoList() {
 	logrus.Info("----------- ready 阶段, 删除excel文件，会把子目录excel也删除")
 	logrus.Info("----------- 删除目录 xinhao-test 已创建的文件夹不会删除，仍然会保留")
 	logrus.Info("----------- 第1遍回放不出来，可以把report excel false的改改，直接拿来用，再次回放")
+	logrus.Info("----------- 并发发送，会报错： level=panic msg= 出异常了, 程序退出! err=close tcp 192.168.85.25:51995->192.168.84.79:8000: use of closed network connection")
 	logrus.Info("----------- 待办事项 end")
 }
 
@@ -411,7 +413,8 @@ func ready() {
 		// 生成预发送信号列表文件
 		logrus.Debug("生成预发送信号列表文件")
 
-		// 步骤3：在本地目录，创建信号库的软链接文件 （直接剔除重复项）,信号。信号路径sigdir 改为 软链接目录
+		// 步骤3：在本地目录，创建信号库的软链接文件 （直接剔除重复项）,信号。信号路径sigdir 改为 软链接目录。
+		// 并在目录里创建 id.txt 机型.txt
 		xinhaoTestPath := createFolderLink()
 
 		// 步骤4：把信号包总路径 改为 软连接的。不影响后续逻辑
@@ -628,16 +631,35 @@ func createFolderLink() string {
 			model := strings.TrimSpace(dronesDb.Model[index])
 			freqBand := strings.TrimSpace(dronesDb.FreqBand[index])
 			freq := strings.TrimSpace(dronesDb.Freq[index])
-			sigFolderName := strings.TrimSpace(dronesDb.SigFolderName[index])
+			sigFolderName := strings.TrimSpace(dronesDb.SigFolderName[index]) // 尽量唯一
+			droneTxt := strings.TrimSpace(dronesDb.DroneTxt[index])           // 机型.txt
+			droneIdTxt := strings.TrimSpace(dronesDb.DroneIdTxt[index])       // id.txt
+			// 机型.txt
 			// 构建文件夹路径 最后再-上 信号文件夹名称
-			folderName := brand + "-" + model + "-" + freqBand + "-" + freq + "-" + sigFolderName
+			// folderName := brand + "-" + model + "-" + freqBand + "-" + freq + "-" + sigFolderName // 之前的写法，软连接文件名称
+			folderName := sigFolderName // 现在的写法，软连接文件名称，因为太冗余，去掉信号文件夹名称
 			folderPath := filepath.Join(currentDir, "xinhao-test", brand, model, freqBand, freq, sigFolderName)
+			// 与软连接配套的 config 文件夹,用来存 id.txt 机型.txt
+			folderConfigPath := filepath.Join(currentDir, "xinhao-test", brand, model, freqBand, freq, sigFolderName, sigFolderName+"-config")
 
 			// 创建子文件夹
 			err = os.MkdirAll(folderPath, 0755)
 			if err != nil {
 				log.Fatalf("无法创建子文件夹: %v", err) // 先注释，如果还不行，再修改代码
 			}
+
+			// 创建子文件夹-相关配置文件夹
+			err = os.MkdirAll(folderConfigPath, 0755)
+			if err != nil {
+				log.Fatalf("无法创建子文件夹-配置文件夹: %v", err) // 先注释，如果还不行，再修改代码
+			}
+			// 在子文件夹-相关配置文件夹, 写入 id.txt 机型.txt
+			idTxtPath := filepath.Join(currentDir, "xinhao-test", brand, model, freqBand, freq, sigFolderName, sigFolderName+"-config", "id.txt")
+			droneTxtPath := filepath.Join(currentDir, "xinhao-test", brand, model, freqBand, freq, sigFolderName, sigFolderName+"-config", "机型.txt")
+
+			createAndWriteFile(idTxtPath, droneIdTxt)
+			createAndWriteFile(droneTxtPath, droneTxt)
+
 			// 给文件夹关联上
 			// 参数1： 被链接的文件 oldname string ; 参数2：链接 newname string. newName 建议用id,因为id比较唯一
 			folderNamePath := filepath.Join(folderPath, folderName)

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -70,6 +71,43 @@ func createOrOpenTxtFile(filePath string) (*os.File, error) {
 }
 
 /*
+功能：创建文件,并写入内容
+参数：
+1. filePath 文件路径
+2. 写入文件内容
+
+返回值：
+1. err
+
+思路：
+1. 检测文件是否存在，不存在就创建文件
+*/
+func createAndWriteFile(filePath string, content string) error {
+	// 1. 检测文件是否存在，不存在就创建文件
+	// 检测文件存在
+	_, err := os.Stat(filePath)
+	if err == nil {
+		logrus.Info("文件已存在, 不创建")
+		return err
+	}
+
+	// 创建新文件
+	// file, err := os.Create(filePath) // 写入文件，就不推荐了
+	file, err := os.OpenFile(filePath, os.O_RDWR|os.O_CREATE, 0666) // 另一种写法,这种更推荐
+	defer file.Close()
+	if err != nil {
+		logrus.Error("文件创建或打开失败,err= ", err)
+	}
+
+	// 写入内容
+	_, err = file.WriteString(content)
+	if err != nil {
+		logrus.Errorf("写入文件内容失败: %v", err)
+	}
+	return err
+}
+
+/*
 功能：time 转成 string类型, 为了文件命名 20240109-103022 (年月日-时分秒)
 参数：
 1. time (time.Time) 时间类型
@@ -129,7 +167,7 @@ func fileExistExt(path string, specifyExt string) bool {
 }
 
 /*
-功能：判断目录下是否包含指定文件。如sig 目录下是否包含 “机型.txt”
+功能：判断目录下是否包含指定文件(正则)。如sig 目录下是否包含 “机型.txt”
 参数：
 1. dirPath 目录路径
 2. specifyFile 指定文件名. 如 “机型.txt”
@@ -138,9 +176,35 @@ func fileExistExt(path string, specifyExt string) bool {
 1. bool
 */
 func fileExist(dirPath string, specifyFile string) bool {
+	/*
+		// 只完全匹配 文件名写法
+		files, err := os.ReadDir(dirPath)
+		if err != nil {
+			logrus.Error("func=fileExist(), 目录不存在, Error reading directory: ", err)
+			return false
+		}
+
+		for _, file := range files {
+			if file.IsDir() {
+				continue
+			}
+			if file.Name() == specifyFile {
+				return true
+			}
+		}
+		return false
+	*/
+	// 正则匹配写法
+	// 编译正则表达式
+	re, err := regexp.Compile(specifyFile)
+	if err != nil {
+		logrus.Errorf("func=fileExist(), 正则表达式编译失败: %v", err)
+		return false
+	}
+
 	files, err := os.ReadDir(dirPath)
 	if err != nil {
-		logrus.Error("func=fileExist(), 目录不存在, Error reading directory: ", err)
+		logrus.Errorf("func=fileExist(), 目录不存在, Error reading directory: %v", err)
 		return false
 	}
 
@@ -148,7 +212,51 @@ func fileExist(dirPath string, specifyFile string) bool {
 		if file.IsDir() {
 			continue
 		}
-		if file.Name() == specifyFile {
+		if re.MatchString(file.Name()) {
+			return true
+		}
+	}
+	return false
+}
+
+/*
+功能：判断目录下是否存在
+参数：
+1. dirPath 目录路径
+
+返回值：
+1. bool
+*/
+func folderExist(dirPath string) bool {
+	_, err := os.Stat(dirPath)
+	if err == nil {
+		return true
+	}
+	if os.IsNotExist(err) {
+		return false
+	}
+	logrus.Errorf("func=dirExist(), 检查目录时出错: %v", err)
+	return false
+}
+
+/*
+功能：判断目录下是否包含子文件夹
+参数：
+1. dirPath 目录路径
+2. subFolderName 指定文件名. 如 “xxx-config”
+
+返回值：
+1. bool
+*/
+func folderExistSubFolder(dirPath string, subFolderName string) bool {
+	files, err := os.ReadDir(dirPath)
+	if err != nil {
+		logrus.Errorf("func=folderExistSubFolder(), 目录不存在, Error reading directory: %v", err)
+		return false
+	}
+
+	for _, file := range files {
+		if file.IsDir() && file.Name() == subFolderName {
 			return true
 		}
 	}
