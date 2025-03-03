@@ -108,12 +108,12 @@ var (
 	reportTxtFile             *os.File // 分析报告文件
 
 	// 发送相关，没研究
-	any                      Any
-	sendIsStart              = make(chan Any, 1)
-	sendIsEnd                = make(chan Any, 1) // 发送是否结束
-	userEndSend              = make(chan Any, 1)
-	userEndQuery             = make(chan Any, 1)
-	userChangeQuerySigFolder = make(chan Any, 1) // 切换查询信号文件夹。 v0.0.0.1 为优化查询效率新增
+	any                             Any
+	sendIsStart                     = make(chan Any, 1)
+	sendIsEnd                       = make(chan Any, 1) // 发送是否结束
+	userEndSend                     = make(chan Any, 1)
+	userEndQuery                    = make(chan Any, 1)
+	userChangeQuerySigFolderChannel = make(chan Any, 1) // 切换查询信号文件夹。 v0.0.0.1 为优化查询效率新增
 
 	logLevel            string // 日志级别
 	changeFolderFlag    bool   // 换文件夹标志
@@ -523,10 +523,6 @@ func report() {
 		queryHistroyFile, err = createOrOpenExcelFile(queryHistroyFilePath)
 		errorPanic(err)
 
-		logrus.Debug("report start 阶段, dronesDb.SigFolderPath = ", dronesDb.SigFolderPath)
-		logrus.Debug("report start 阶段, dronesDb = ", dronesDb)
-		logrus.Debug("report start 阶段, allDronesDb.SigFolderPath = ", allDronesDb.SigFolderPath)
-		logrus.Debug("report start 阶段, allDronesDb = ", allDronesDb)
 		logrus.Info("--------- report 阶段 dronesDbEnable = ", dronesDbEnable)
 
 		// 步骤5：判断设备检测的是否对   - 原来的 report 环节
@@ -538,40 +534,12 @@ func report() {
 		createReportRelateAllDronesDb()
 
 		logrus.Info("--------------- report 阶段 end ---------------")
-		// logrus.Info("report end 阶段, dronesDb.SigFolderPath = ", dronesDb.SigFolderPath)
-		// logrus.Info("report end 阶段, dronesDb = ", dronesDb)
-		// logrus.Info("report end 阶段, allDronesDb.SigFolderPath = ", allDronesDb.SigFolderPath)
-		// logrus.Info("report end 阶段, allDronesDb = ", allDronesDb)
-		logrus.Debug("report end 阶段, dronesDb.SigFolderPath.len = ", len(dronesDb.SigFolderPath))
-		logrus.Debug("report end 阶段, allDronesDb.SigFolderPath.len = ", len(allDronesDb.SigFolderPath))
 	}
 
 }
 
 // 删除当前目录 xlsx文件, txt文件
 func deleteHistroyFile() {
-	/*
-		// 会递归删除当前目录及子目录  xlsx文件, txt文件
-		err := filepath.Walk(".", func(path string, info os.FileInfo, err error) error {
-			if err != nil {
-				return err
-			}
-			if info.IsDir() {
-				return nil
-			}
-			if filepath.Ext(path) == ".xlsx" || filepath.Ext(path) == ".txt" {
-				fmt.Println("删除文件= ", path)
-				err := os.Remove(path)
-				if err != nil {
-					fmt.Println("删除文件出错:", err)
-				}
-			}
-			return nil
-		})
-		if err != nil {
-			fmt.Println("遍历目录出错:", err)
-		}
-	*/
 
 	// 只删除当前目录
 	// 获取当前目录下的文件列表

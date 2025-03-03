@@ -468,13 +468,6 @@ func getRowsFromExcel(path string, sheetName string) DroneDB {
 		errorPanic(err)
 		dronesDb.SigFolderPath = append(dronesDb.SigFolderPath, sigFolderPath)
 
-		// sigFolderPathExistStr, err := file.GetCellValue(sheetName, "K"+strconv.Itoa(index)) // 信号文件夹路径是否存在。这个需要后期, 程序判断后赋值的。而不是取值
-		// logrus.Info("--------------- sigFolderPathExistStr = ", sigFolderPathExistStr)
-		// errorPanic(err)
-		// sigFolderPathExist, err := strconv.ParseBool(sigFolderPathExistStr)
-		// errorPanic(err)
-		// dronesDb.SigFolderPathExist = append(dronesDb.SigFolderPathExist, sigFolderPathExist)
-
 		droneTxt, err := file.GetCellValue(sheetName, "L"+strconv.Itoa(index)) // 机型.txt内容
 		errorPanic(err)
 		dronesDb.DroneTxt = append(dronesDb.DroneTxt, droneTxt)
