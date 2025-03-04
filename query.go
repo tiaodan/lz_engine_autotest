@@ -33,33 +33,18 @@ var (
 	postParam     = bytes.NewBuffer([]byte(queryParam))
 	queryExcellen int
 
-	// 自定义换文件标志位，与全局变量区分开来
-	isCanSendChangeFolderFlag    = false // 是否可以发送换文件标志位
-	isCanSendChangeFolderFlagNum = 0
-	// countDownTotal               = int(cdFolderInterval / queryDroneInterval) // 倒计时次数, 这几次都没有的话，发切换文件夹信号。 切换文件时间/查询间隔时间，取整 一般：12/2
-	// 为什么这么写 数值不对？ 变成9223372036854774762"
-	// countDownTotal = int(float64(cdFolderInterval) / float64(queryDroneInterval)) // 倒计时次数, 这几次都没有的话，发切换文件夹信号。 切换文件时间/查询间隔时间，取整 一般：12/2
-	// countDown      = countDownTotal
-	countDownTotal int
-	countDown      int
+	countDownTimes = 4 // 检测到后，多少次没检测到
 )
 
 func queryTask() {
 	fmt.Println("----进入方法: 开启查询任务, queryTask()")
-	// 初始化
-	countDownTotal = int(float64(cdFolderInterval) / float64(queryDroneInterval)) // 倒计时次数, 这几次都没有的话，发切换文件夹信号。 切换文件时间/查询间隔时间，取整 一般：12/2
-	countDown = countDownTotal
-
 	<-sendIsStart
 	if len(queryIp) == 0 {
 		queryIp = "http://" + devIp + ":3200/graphql"
 	}
 
 	ticker := time.NewTicker(time.Duration(queryDroneInterval) * time.Second)
-	changeFolderFlagTicker := time.NewTicker(time.Duration(1) * time.Second) // 创建一个定时器，1秒一次
 	defer ticker.Stop()
-	defer changeFolderFlagTicker.Stop()
-
 	var res *http.Response
 	var err error
 	// timeout := time.After(time.Duration(queryDroneInterval+5) * time.Second) // 设置超时时间为 queryDroneInterval + 5 秒 - no use
@@ -69,7 +54,7 @@ func queryTask() {
 		// fmt.Println("-------------------------------------------------queryTask(), 查询任务, for循环--阻塞")
 		select {
 		case <-sendIsEnd:
-			fmt.Println("-------------------------------------------------停止查询, query.go 读取信号消息: sendIsEnd")
+			fmt.Println("-------------------------------------------------停止查询, sendIsEnd")
 			logrus.Info("停止查询, sendIsEnd")
 			// 关闭文件
 			queryHistroyTxtFile.Close() // 直接写应该没有问题
@@ -82,12 +67,9 @@ func queryTask() {
 		// case <-time.After(time.Duration(queryDroneInterval+5) * time.Second):
 		// 	logrus.Error("超时, 停止查询")
 		// 	return
-		default:
-			// 添加了case <-startQueryChannel，就注释了这里
-			// case <-ticker.C: // 添加了case <-startQueryChannel，就注释了自立。这里代码有问题，如果和 case <-sendIsEnd: case <-userEndQuery: 并列写，有可能ticker.C 阻塞那几秒内，收到了终止信息，又无法进入那个case进行处理
-			// case <-ticker.C: // 添加了case <-startQueryChannel，就注释了自立。这里代码有问题，如果和 case <-sendIsEnd: case <-userEndQuery: 并列写，有可能ticker.C 阻塞那几秒内，收到了终止信息，又无法进入那个case进行处理
+		case <-ticker.C: // 这里代码有问题，如果和 case <-sendIsEnd: case <-userEndQuery: 并列写，有可能ticker.C 阻塞那几秒内，收到了终止信息，又无法进入那个case进行处理
 			// fmt.Println("-------------------------------------------------继续查询, ticker.C")
-			// logrus.Info("-------------------------------------------------继续查询, ticker.C")
+			logrus.Info("-------------------------------------------------继续查询, ticker.C")
 			// 重连5次
 			for j := 0; ; j++ {
 				q := strings.NewReader(`{"query":"{drone\n {\n id \n name \n seen_sensor\n {\n detected_freq_khz\n }\n }\n}"}`)
@@ -135,6 +117,9 @@ func queryTask() {
 				s := v["name"].(string)
 				d := Drone{Id: ids, Name: s, FreqList: 0}
 				f := v["seen_sensor"].([]interface{})
+				// logrus.Debug("查到的 s = ", s)
+				// logrus.Debug("查到的 d = ", d)
+				// logrus.Debug("查到的 f = ", f)
 				for _, w := range f {
 					w1 := w.(map[string]interface{})
 					w2 := w1["detected_freq_khz"]
@@ -146,9 +131,7 @@ func queryTask() {
 
 			t := time.Now()
 			ts := fmt.Sprintf("%d.%02d.%02d %02d:%02d:%02d", t.Year(), t.Month(), t.Day(), t.Hour(), t.Minute(), t.Second())
-			// fmt.Println(ts, "查询", droneList)
-			logrus.Debug(ts, "查询到的飞机= ", droneList)
-			logrus.Info("查询到的飞机= ", droneList)
+			fmt.Println(ts, "查询", droneList)
 			logrus.Debug("查询任务中,目标飞机preQueryDrone= ", currentQueryTargetDrone)                             // [{3DR Solo [2462000] 8adc9635291e}] 原来写法: preQueryDrone := Drone{id: currentSigPkgDroneId, name: "3DR Solo", freqList: []int{2462000}}
 			queryResultHasMistake := checkAlgorithmWhereFreqHasMistake(droneList, currentQueryTargetDrone) // 判断是否查询到 ,true / false, 后面再写逻辑,判断true/false
 			queryResultNoMistake := checkAlgorithmWhereFreqNoMistake(droneList, currentQueryTargetDrone)   // 判断是否查询到 ,true / false, 后面再写逻辑,判断true/false
@@ -158,65 +141,30 @@ func queryTask() {
 			writeQuery2Txt(currentQueryTargetDrone, droneList, queryResultHasMistake, queryResultNoMistake, currentSigDirPath, currentTime)                    // 最早的参数-3个,// 表头: 时间, 飞机, 时间戳, 要查询的飞机id, 查询结果-有没有(true/ false)
 			// v0.0.0.1 为了提高效率新增，一旦判断 queryResultNoMistake==true 或者queryResultNoMistake==false && queryResultHasMistake== true了，就不继续查了。发送个信号
 			// 最新逻辑，发一次信号就好了，不多发信号
-
-			// 第一次检测到                                                              // 是否可以发送换文件标志位 计数器, 一段时间内，重复检测到该飞机次数
-			if droneNameIsEqual && (queryResultNoMistake || queryResultHasMistake) && isCanSendChangeFolderFlagNum == 0 { // 如果有问题，用这个
+			if droneNameIsEqual && (queryResultNoMistake || queryResultHasMistake) && changeFolderFlagNum == 0 { // 如果有问题，用这个
 				// if droneNameIsEqual && (queryResultNoMistake || queryResultHasMistake) { // 切换文件夹期间，查到数据，会影响文件夹切换逻辑
 				logrus.Info("查询到正确数据, queryResultNoMistake==true, 发送信号: 切换文件夹")
 				// userEndQuery <- any // 发送信号：用户停止当此查询 - 发这个信号不对，只能查1个
 				// userEndSend <- any // 发送信号：用户停止当此查询 - 发这个信号也不对，只能查1个
-				changeFolderFlag = true          // 这个标志位暂时不用了？-需要用
-				changeFolderFlagNum = 1          // 这个标志位暂时不用了？-需要用
-				isCanSendChangeFolderFlag = true // 第一次检测到后从100开始计数，开始一个倒计时
+				// userChangeQuerySigFolder <- any // 发送信号：换信号文件夹
+				changeFolderFlag = true
+				changeFolderFlagNum = 1
+				// changeFolderFlagNum += 1
 				logrus.Infof("切换信号文件夹标志 changeFolderFlag =%v, changeFolderFlagNum=%v", changeFolderFlag, changeFolderFlagNum)
 			}
 
-			logrus.Info("----------------------------isCanSendChangeFolderFlag = ", isCanSendChangeFolderFlag)
-			logrus.Info("----------------------------isCanSendChangeFolderFlagNum = ", isCanSendChangeFolderFlagNum)
-
-			logrus.Info("----------------------------countDown = ", countDown)
-			// logrus.Info("----------------------------countDownTotal = ", countDownTotal)
-			// logrus.Info("----------------------------float64(cdFolderInterval) = ", float64(cdFolderInterval))
-			// logrus.Info("----------------------------float64(queryDroneInterval) = ", float64(queryDroneInterval))
-
-			if isCanSendChangeFolderFlag {
-				select {
-				// case <-changeFolderFlagTimer.C:
-				case <-changeFolderFlagTicker.C:
-					logrus.Info("---------------------------- changeFolderFlagTicker.C")
-					logrus.Info("---------------------------- countDown 倒计时，剩余检测次数= ", countDown)
-					logrus.Infof("---------------------------- changeFolderFlagTicker.C, = droneNameIsEqual=%v, queryResultNoMistake=%v, queryResultHasMistake=%v", droneNameIsEqual, queryResultNoMistake, queryResultHasMistake)
-					if droneNameIsEqual && (queryResultNoMistake || queryResultHasMistake) {
-						isCanSendChangeFolderFlagNum += 1
-						countDown = countDownTotal
-					} else {
-						countDown -= 1
-					}
-
-				// 	if remaining <= 0 {
-				// 		fmt.Println("总倒计时结束! 发送切换文件夹信号")
-				// 		isCanSendChangeFolderFlag = true
-				// 	}
-
-				// 	fmt.Printf("周期性触发，剩余时间 %.0f 秒\n", remaining.Seconds())
-				default:
-					countDown -= 1
-					logrus.Info("default: -------------------------------------------------判断超时, 查询,for 默认分支")
-				}
+			if droneNameIsEqual && (queryResultNoMistake || queryResultHasMistake) {
+				countDownTimes = 4 // 检测到，重置计数器
+			} else {
+				countDownTimes -= 1 // 没检测到
 			}
 
-			logrus.Debug("----- 能执行到这。。。。。。。。。。。。")
-			// 判断能否发送切换信号, 标志位。 条件：1.发送标志位==true，2.倒计时结束, 次数==0
-			if isCanSendChangeFolderFlag && countDown == 0 {
-				logrus.Info("发送切换文件夹信号---------------------- ")
-				userChangeQuerySigFolderChannel <- any // 发送信号：换信号文件夹
-				// 重置信号
-				isCanSendChangeFolderFlag = false
-				isCanSendChangeFolderFlagNum = 0
-				countDown = countDownTotal
+			if countDownTimes == 0 {
+				msgChangeFolder <- any // 发送切换文件夹信号
+				countDownTimes = 4     // 检测到，重置计数器
 			}
+			logrus.Infof("countDownTimes=%v, changeFolderFlag=%v, changeFolderFlagNum=%v", countDownTimes, changeFolderFlag, changeFolderFlagNum)
 
-			time.Sleep(time.Duration(queryDroneInterval) * time.Second) // 改成case default 后新增
 			// default:
 			// 	fmt.Println("-------------------------------------------------判断超时, 查询,for 默认分支")
 			// 	logrus.Error("查询,for 默认分支，timeoutNum = ", timeoutNum)
@@ -410,8 +358,15 @@ func checkAlgorithmWhereFreqNoMistake(queriedDrones []Drone, targetDrones []Dron
 func checkAlgorithmWhereDroneNameIsEqual(queriedDrones []Drone, targetDrones []Drone) bool {
 	for _, queriedDrone := range queriedDrones {
 		for _, targetDrone := range targetDrones {
-			// 判断查询到的飞机列表,id是否相等
-			if queriedDrone.Name == targetDrone.Name {
+			// 判断查询到的飞机列表,id是否相等。
+			/*
+				// 区分大小写写法
+				if queriedDrone.Name == targetDrone.Name {
+					return true
+				}
+			*/
+			// 不区分大小写写法
+			if strings.EqualFold(queriedDrone.Name, targetDrone.Name) {
 				return true
 			}
 		}
@@ -439,10 +394,10 @@ func writeQueryExcel(preQueryDrone []Drone, res []Drone, queryResultHasMistake b
 	queryExcellen++
 
 	tableRow := &[]Any{preQueryDrone, res, queryResultHasMistake, queryResultNoMistake, sigFolderPath, time2stringforFilename(currentTime), droneNameIsEqual}
-	// logrus.Infof("写入查询记录表, 当前drone=%v, tableRow= %v, 信号包路径=%v", preQueryDrone, tableRow, sigFolderPath)
-	logrus.Infof("写入查询记录表, 当前测试drone=%v, 信号包路径=%v", preQueryDrone, sigFolderPath)
+	logrus.Infof("写入查询记录表, 当前drone=%v, tableRow= %v, 信号包路径=%v", preQueryDrone, tableRow, sigFolderPath)
 	err = queryHistroyFile.SetSheetRow("Sheet1", "A"+strconv.Itoa(queryExcellen+1), tableRow)
 	errorPanic(err)
+	logrus.Debug("写入查询文件, filePath= ", queryHistroyFilePath)
 	err = queryHistroyFile.SaveAs(queryHistroyFilePath)
 	errorPanic(err)
 }

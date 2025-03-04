@@ -57,11 +57,11 @@ func createReport() {
 	var queryEndTime time.Time
 	for index, row := range rows {
 		if index == 1 {
-			// logrus.Info("feed总用时(单位: 分钟) queryStartTimeStr= ", (row[5]))
+			logrus.Info("feed总用时(单位: 分钟) queryStartTimeStr= ", (row[5]))
 			queryStartTime = string2time(row[5])
 		}
 		if index == len(rows)-1 {
-			// logrus.Info("feed总用时(单位: 分钟) queryEndTimeStr= ", (row[5]))
+			logrus.Info("feed总用时(单位: 分钟) queryEndTimeStr= ", (row[5]))
 			queryEndTime = string2time(row[5])
 		}
 	}
@@ -176,7 +176,7 @@ func createReportRelateSigReplayDronesDb() {
 		sigPath, err := file.GetCellValue(sheetName, "B"+strconv.Itoa(index)) // 具体机型路径
 		errorPanic(err)
 		if sigPath == "" { // 如果不判断发送最后一条空数据时，会报错。因为有 rows.Next()。会获取到最后一条数据，下一行的空数据
-			// logrus.Info("createReportRelateSigReplayDronesDb(), 最后一条数据，退出")
+			logrus.Info("createReportRelateSigReplayDronesDb(), 最后一条数据，退出")
 			break
 		}
 		sigPathMap[sigPath] = sigPath
@@ -280,7 +280,7 @@ func createReportRelateAllDronesDb() {
 		sigPath, err := file.GetCellValue(sheetName, "B"+strconv.Itoa(index)) // 具体机型路径
 		errorPanic(err)
 		if sigPath == "" { // 如果不判断发送最后一条空数据时，会报错。因为有 rows.Next()。会获取到最后一条数据，下一行的空数据
-			// logrus.Info("createReportRelateAllDronesDb(), 最后一条数据，退出")
+			logrus.Info("createReportRelateAllDronesDb(), 最后一条数据，退出")
 			break
 		}
 		sigPathMap[sigPath] = sigPath
@@ -342,9 +342,9 @@ func createReportRelateAllDronesDb() {
 // arg1: 正确？ bool
 // arg2: 异常原因 errorReason  string 。 正常填nil
 func checkAlgorithmWhereQueryResult(boolResultDroneNameEqualList []string, boolResultNoMistakeList []string, boolResultHasMistakeList []string) (bool, string) {
-	// logrus.Info("report检测算法, 机型名称结果 boolResultDroneNameEqualList= ", boolResultDroneNameEqualList)
-	// logrus.Info("report检测算法, 无误差结果 boolResultNoMistakeList= ", boolResultNoMistakeList)
-	// logrus.Info("report检测算法, 有误差结果 boolResultHasMistakeList= ", boolResultHasMistakeList)
+	logrus.Info("report检测算法, 机型名称结果 boolResultDroneNameEqualList= ", boolResultDroneNameEqualList)
+	logrus.Info("report检测算法, 无误差结果 boolResultNoMistakeList= ", boolResultNoMistakeList)
+	logrus.Info("report检测算法, 有误差结果 boolResultHasMistakeList= ", boolResultHasMistakeList)
 
 	// 判断query excel 每一行的数据
 	errorReason := "" // 异常内容
@@ -367,8 +367,6 @@ func checkAlgorithmWhereQueryResult(boolResultDroneNameEqualList []string, boolR
 			boolResultHasMistakeNum += 1
 		}
 	}
-	logrus.Debug(" ----------------boolResultNoMistakeNum = ", boolResultNoMistakeNum)
-	logrus.Debug(" ----------------boolResultHasMistakeNum = ", boolResultHasMistakeNum)
 	if droneNameNotEqualNum == len(boolResultDroneNameEqualList) {
 		errorReason = "未检测到该机型"
 	} else if boolResultNoMistakeNum == len(boolResultNoMistakeList) && boolResultHasMistakeNum == len(boolResultHasMistakeList) {
