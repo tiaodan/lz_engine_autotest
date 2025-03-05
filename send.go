@@ -83,7 +83,7 @@ func sendTask() {
 			}
 			}
 		*/
-		logrus.Infof("index=%v, 切换信号文件夹标志 changeFolderFlag =%v, changeFolderFlagNum=%v", i, changeFolderFlag, changeFolderFlagNum)
+		// logrus.Infof("index=%v, 切换信号文件夹标志 changeFolderFlag =%v, changeFolderFlagNum=%v", i, changeFolderFlag, changeFolderFlagNum)
 		if sigpkg != "[换文件夹]" && changeFolderFlag && changeFolderFlagNum == 1 { // 切换文件夹消息数量==1时才认，只认收到的第一条消息
 			logrus.Infof("index=%v, 切换信号文件夹标志=true, 跳过当前循环, sig=%v", i, sigpkg)
 			continue
@@ -93,7 +93,7 @@ func sendTask() {
 		// }
 
 		// copy过来的代码
-		fmt.Printf("------------------------------------- 发送信号, index = %v, tasklist= %v \n", i, sigpkg)
+		// fmt.Printf("------------------------------------- 发送信号, index = %v, tasklist= %v \n", i, sigpkg)
 		logrus.Infof("------------------------------------- 发送信号, index = %v, tasklist= %v ", i, sigpkg)
 		if sigpkg == "[换文件夹]" {
 			logrus.Infof("index=%v, 【换文件夹】切换信号文件夹标志 changeFolderFlag =%v, changeFolderFlagNum=%v", i, changeFolderFlag, changeFolderFlagNum)
@@ -136,15 +136,11 @@ func sendTask() {
 		} else {
 			count, err := send(sigpkg)
 			if err != nil {
-				t := time.Now()
-				ts := fmt.Sprintf("%d.%02d.%02d %02d:%02d:%02d", t.Year(), t.Month(), t.Day(), t.Hour(), t.Minute(), t.Second())
 				// writeSendExcel(i, "发送失败", t)
-				fmt.Println(ts, "发送失败", sigpkg)
+				logrus.Error("发送失败", sigpkg)
 			} else {
-				t := time.Now()
-				ts := fmt.Sprintf("%d.%02d.%02d %02d:%02d:%02d", t.Year(), t.Month(), t.Day(), t.Hour(), t.Minute(), t.Second())
 				// writeSendExcel(i, ts, t)
-				fmt.Println(ts, "发送", sigpkg)
+				// logrus.Info("发送成功", sigpkg)
 			}
 			select {
 			case <-time.After(time.Duration(sigPkgSendInterval * count)):

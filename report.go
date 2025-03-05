@@ -342,9 +342,9 @@ func createReportRelateAllDronesDb() {
 // arg1: 正确？ bool
 // arg2: 异常原因 errorReason  string 。 正常填nil
 func checkAlgorithmWhereQueryResult(boolResultDroneNameEqualList []string, boolResultNoMistakeList []string, boolResultHasMistakeList []string) (bool, string) {
-	logrus.Info("report检测算法, 机型名称结果 boolResultDroneNameEqualList= ", boolResultDroneNameEqualList)
-	logrus.Info("report检测算法, 无误差结果 boolResultNoMistakeList= ", boolResultNoMistakeList)
-	logrus.Info("report检测算法, 有误差结果 boolResultHasMistakeList= ", boolResultHasMistakeList)
+	// logrus.Info("report检测算法, 机型名称结果 boolResultDroneNameEqualList= ", boolResultDroneNameEqualList)
+	// logrus.Info("report检测算法, 无误差结果 boolResultNoMistakeList= ", boolResultNoMistakeList)
+	// logrus.Info("report检测算法, 有误差结果 boolResultHasMistakeList= ", boolResultHasMistakeList)
 
 	// 判断query excel 每一行的数据
 	errorReason := "" // 异常内容
