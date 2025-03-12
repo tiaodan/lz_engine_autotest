@@ -33,8 +33,8 @@ var (
 	postParam     = bytes.NewBuffer([]byte(queryParam))
 	queryExcellen int
 
-	countDownTimes = 20 // 检测到后，多少次没检测到
-	findTimes      = 0  // 检测到飞机次数
+	countDownTimes = noQueryTimes2NextSig // 检测到后，多少次没检测到
+	findTimes      = 0                    // 检测到飞机次数
 )
 
 func queryTask() {
@@ -153,7 +153,7 @@ func queryTask() {
 			}
 
 			if droneNameIsEqual && (queryResultNoMistake || queryResultHasMistake) {
-				countDownTimes = 20 // 检测到，重置计数器
+				countDownTimes = noQueryTimes2NextSig // 检测到，重置计数器
 				findTimes += 1
 			} else {
 				countDownTimes -= 1 // 没检测到
@@ -162,13 +162,13 @@ func queryTask() {
 			logrus.Infof("countDownTimes=%v, changeFolderFlag=%v, findTimes=%v, changeFolderFlagNum=%v", countDownTimes, changeFolderFlag, findTimes, changeFolderFlagNum)
 			// 发送信号条件：每次都没测到6次，或者 测到过等消失后4次。这样效率高
 			// if (findTimes == 0 && countDownTimes == 0) || (findTimes >= 1 && countDownTimes <= 5) {
-			if (countDownTimes == 0) || (findTimes >= 1 && countDownTimes <= 17) {
+			if (countDownTimes == 0) || (findTimes >= 1 && countDownTimes <= noQueryTimes2NextSig-afterQueriedWaitTimes) {
 				msgChangeFolder <- any // 发送切换文件夹信号
 				// 跳过当前循环标志 start,防止上一步阻塞
 				changeFolderFlag = true
 				changeFolderFlagNum = 1
 				// 跳过当前循环标志 end,防止上一步阻塞
-				countDownTimes = 20 // 检测到，重置计数器
+				countDownTimes = noQueryTimes2NextSig // 检测到，重置计数器
 				findTimes = 0
 				logrus.Info("------------- 发送完信号,并重置完计数器: 换文件夹, msgChangeFolder <- any")
 			}

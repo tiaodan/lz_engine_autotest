@@ -118,6 +118,9 @@ func readLowerConfig(configName string, configSuffix string, configRelPath strin
 	queryHistroyFileTxtPath = "查询列表" + startTimeStr + ".txt"            // 查询记录文件txt 路径
 	reportFilePath = viper.GetString("file.reportfilepath")             // 查询文件路径
 
+	noQueryTimes2NextSig = viper.GetInt("query.noquerytimes2nextsig")   // 查不到多少次后，跳到下一个号
+	afterQueriedWaitTimes = viper.GetInt("query.afterqueriedwaittimes") // 查到后，再多查几次，直到信号完全消失
+
 	// 打印配置
 	logrus.Info("配置 devIp (设备ip)= ", devIp)
 	logrus.Info("配置 sigDir (信号包根目录)= ", sigDir)
@@ -134,6 +137,8 @@ func readLowerConfig(configName string, configSuffix string, configRelPath strin
 	logrus.Info("配置 concurrencyNum (并发个数)= ", concurrencyNum)
 	logrus.Info("配置 concurrencySigRepeatNum (信号发送循环次数)= ", concurrencySigRepeatNum)
 	logrus.Info("配置 readFromConfigFolderEnable ( 是否从配置文件夹 读取id.txt 机型)= ", readFromConfigFolderEnable)
+	logrus.Info("配置 noQueryTimes2NextSig ( 查不到多少次后，跳到下一个号)= ", noQueryTimes2NextSig)
+	logrus.Info("配置 afterQueriedWaitTimes ( 查到后，再多查几次，直到信号完全消失)= ", afterQueriedWaitTimes)
 }
 
 /*

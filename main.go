@@ -120,6 +120,9 @@ var (
 	changeFolderFlag    bool   // 换文件夹标志
 	changeFolderFlagNum int    // 换文件夹标志 num
 
+	// 查询相关
+	noQueryTimes2NextSig  int // 查不到多少次后，跳到下一个号
+	afterQueriedWaitTimes int // 查到后，再多查几次，直到信号完全消失
 )
 
 // 初始化，默认调用

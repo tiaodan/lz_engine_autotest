@@ -1,1 +1,0 @@
-{'Frequency:': '2430', 'Gain:': '20', 'Samprate:': '61.44', 'Bandwidth:': '52', 'Duration:': '28', 'Numfiles:': '5'}

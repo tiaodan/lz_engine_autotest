@@ -42,6 +42,10 @@ starttime=
 [query]
 # 频率误差值, 单位：Mhz ，10M就能处理90%的机型
 mistakeFreq=20
+# 查不到多少次后，跳到下一个号
+noQueryTimes2NextSig=21
+# 查到后，再多查几次，直到信号完全消失
+afterQueriedWaitTimes=3
 
 # 机型库相关
 [dronesDb]
