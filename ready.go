@@ -35,6 +35,7 @@ var (
 	currentQueryTargetDroneIds = []string{} // 当前无人机id 数组列表, 可以是多个
 	currentDirSigNum           = 0          // 当前目录，信号包数量
 	currentSigCount            = 0          // 当前查了几个信号
+	driveLetter                string       // 磁盘盘符
 )
 
 /*
@@ -63,6 +64,7 @@ func readConfig(configName string, configSuffix string, configRelPath string) {
 	allDronesDbPath = viper.GetString("dronesdb.alldronesdbpath")      // all机型库路径
 	concurrencyEnable = viper.GetBool("concurrency.concurrencyEnable") // 并发开关。如果打开了，同时发送N个信号
 	concurrencyNum = viper.GetInt("concurrency.concurrencyNum")        // 并发个数
+	driveLetter = viper.GetString("signal.driveletter")                // 磁盘盘符
 
 	// 打印配置
 	logrus.Info("配置 devIp (设备ip)= ", devIp)
@@ -74,6 +76,7 @@ func readConfig(configName string, configSuffix string, configRelPath string) {
 	logrus.Info("配置 dronesdbenable (是否启用机型库)= ", dronesDbEnable)
 	logrus.Info("配置 dronesdbenable (是否启用机型库)= ", viper.GetString("dronesdb.dronesdbenable"))
 	logrus.Info("配置 dronesDbPath (机型库路径)= ", dronesDbPath)
+	logrus.Info("配置 driveLetter (磁盘盘符)= ", driveLetter)
 }
 
 /*
@@ -121,6 +124,8 @@ func readLowerConfig(configName string, configSuffix string, configRelPath strin
 	noQueryTimes2NextSig = viper.GetInt("query.noquerytimes2nextsig")   // 查不到多少次后，跳到下一个号
 	afterQueriedWaitTimes = viper.GetInt("query.afterqueriedwaittimes") // 查到后，再多查几次，直到信号完全消失
 
+	driveLetter = viper.GetString("signal.driveletter") // 磁盘盘符
+
 	// 打印配置
 	logrus.Info("配置 devIp (设备ip)= ", devIp)
 	logrus.Info("配置 sigDir (信号包根目录)= ", sigDir)
@@ -139,6 +144,7 @@ func readLowerConfig(configName string, configSuffix string, configRelPath strin
 	logrus.Info("配置 readFromConfigFolderEnable ( 是否从配置文件夹 读取id.txt 机型)= ", readFromConfigFolderEnable)
 	logrus.Info("配置 noQueryTimes2NextSig ( 查不到多少次后，跳到下一个号)= ", noQueryTimes2NextSig)
 	logrus.Info("配置 afterQueriedWaitTimes ( 查到后，再多查几次，直到信号完全消失)= ", afterQueriedWaitTimes)
+	logrus.Info("配置 driveLetter (磁盘盘符)= ", driveLetter)
 }
 
 /*
@@ -214,7 +220,8 @@ func createPreSendHistoryFile(filePath string) {
 		errorPanic(err)
 
 		// 6. 循环读取信号包所有文件，写入行内容
-		err = setPreSendHistoryFileSheetRow(sigDir)
+		sigDir_replaceDriveLetter := replaceDiskLetter(sigDir)         // 替换sigDir 盘符
+		err = setPreSendHistoryFileSheetRow(sigDir_replaceDriveLetter) // 替换盘符，原来写法：err = setPreSendHistoryFileSheetRow(sigDir)
 		errorPanic(err)
 	}
 
@@ -244,7 +251,8 @@ func createPreSendHistoryFile(filePath string) {
 		errorPanic(err)
 
 		// 6. 循环读取信号包所有文件，写入行内容
-		err = setPreSendHistoryFileSheetRow(sigDir)
+		// sigDir_replaceDriveLetter := replaceDiskLetter(sigDir)         // 替换sigDir 盘符
+		err = setPreSendHistoryFileSheetRow(sigDir) // 替换盘符，原来写法：err = setPreSendHistoryFileSheetRow(sigDir)
 		errorPanic(err)
 	}
 }
@@ -529,7 +537,15 @@ func loopDir(dirPath string) {
 
 		// 3. 读取每个文件，并写入信息到 待发送列表
 		for _, file := range files {
-			fileAbsPath := filepath.Join(dirPath, file.Name()) // 文件/目录 绝对路径
+			fileAbsPath := filepath.Join(dirPath, file.Name()) // 文件/目录 绝对路径.替换盘符，原来写法：fileAbsPath := filepath.Join(dirPath, file.Name())
+			// fileAbsPath_oldDriveLetter := filepath.Join(dirPath, file.Name()) // 文件/目录 绝对路径.替换盘符，原来写法：fileAbsPath := filepath.Join(dirPath, file.Name())
+			// fileAbsPath := replaceDiskLetter(fileAbsPath_oldDriveLetter)
+			logrus.Info("----------------------- 替换盘符 -------当前文件绝对路径: fileAbsPath= ", fileAbsPath)
+			logrus.Info("----------------------- 替换盘符 -------当前文件绝对路径: fileAbsPath= ", fileAbsPath)
+			logrus.Info("----------------------- 替换盘符 -------当前文件绝对路径: fileAbsPath= ", fileAbsPath)
+			logrus.Info("----------------------- 替换盘符 -------当前文件绝对路径: fileAbsPath= ", fileAbsPath)
+			logrus.Info("----------------------- 替换盘符 -------当前文件绝对路径: fileAbsPath= ", fileAbsPath)
+			// 替换盘符
 			fileInfo, err := os.Lstat(filepath.Join(dirPath, file.Name()))
 			if err != nil {
 				fmt.Println("获取文件信息出错:", err)
@@ -694,7 +710,7 @@ func loopDir(dirPath string) {
 						}
 					}
 
-					logrus.Info("当前信号包路径: filepath.Join= ", fileAbsPath)
+					logrus.Info("当前信号包路径: filepath.Join  == ", fileAbsPath) // 替换盘符。原来写法：logrus.Info("当前信号包路径: filepath.Join= ", fileAbsPath)
 					// 判断是 包含bvsp + 包含-config文件，才处理id.txt
 					configFolderExist := folderExist(configFolderPath)
 					sigExist := fileExist(fileAbsPath, ".bvsp") || fileExist(fileAbsPath, ".dat") // bvsp dat
@@ -831,8 +847,8 @@ func loopFile(path string) {
 				logrus.Info("preSigDirPath == 空,判断了1次？？？")
 			}
 
-			sigpkgList = append(sigpkgList, path)
-			currentSigCount++ // 计数+1
+			sigpkgList = append(sigpkgList, path) // 替换盘符，原来写法：sigpkgList = append(sigpkgList, path)
+			currentSigCount++                     // 计数+1
 			// 设置 当前信号包目录
 			if currentSigDirPath != nowSigDirPath {
 				currentSigDirPath = nowSigDirPath
@@ -862,6 +878,8 @@ func loopFile(path string) {
 
 			logrus.Info("loopFile 到最后一个信号文件")
 			// 根据信号回放次数，把sigpkgList 循环添加几次
+			logrus.Error("------------- sigFolderReplayNumMap[currentSigDirPath] ==", sigFolderReplayNumMap[currentSigDirPath])
+			logrus.Error("--------------[currentSigDirPath] ==", currentSigDirPath)
 			sigFolderReplayNum, err := strconv.Atoi(sigFolderReplayNumMap[currentSigDirPath])
 			errorEcho(err)
 			logrus.Info("回放次数，sigFolderReplayNum= ", sigFolderReplayNum)
@@ -884,6 +902,13 @@ func loopFile(path string) {
 		}
 	}
 
+}
+
+// 替换字符串 冒号:前面盘符 = F
+func replaceDiskLetter(str string) string {
+	// re := regexp.MustCompile(`[A-Za-z]:`)
+	re := regexp.MustCompile(`[E]:`) // 原来写法：re := regexp.MustCompile(`[A-Za-z]:`)
+	return re.ReplaceAllString(str, driveLetter+":")
 }
 
 /*

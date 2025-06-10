@@ -64,33 +64,11 @@ func sendTask() {
 			currentSigDirPath = sigFolderPathList[i]  // 当前信号文件夹路径
 		}
 
-		// v0.0.0.1 新增，为优化查询效率。一旦检测到成功的，剩下的信号就不发了。就直接切换信号包
-		/*
-			这段写法有问题，还没研究
-			if <-userChangeQuerySigFolder {
-				continue
-			}
-		*/
-		/*
-			这段代码写在这，会阻塞，暂时没办法解决
-			if !changeFolderFlag {
-			select {
-			case <-userChangeQuerySigFolder:
-				logrus.Info("收到信号：切换信号文件夹标志, 修改flag")
-				if i+1 < len(droneObjList) && sigFolderPathList[i] == sigFolderPathList[i+1] { // 不加这个，数组越界
-					changeFolderFlag = true
-				}
-			}
-			}
-		*/
 		// logrus.Infof("index=%v, 切换信号文件夹标志 changeFolderFlag =%v, changeFolderFlagNum=%v", i, changeFolderFlag, changeFolderFlagNum)
 		if sigpkg != "[换文件夹]" && changeFolderFlag && changeFolderFlagNum == 1 { // 切换文件夹消息数量==1时才认，只认收到的第一条消息
 			logrus.Infof("index=%v, 切换信号文件夹标志=true, 跳过当前循环, sig=%v", i, sigpkg)
 			continue
 		}
-		// else {
-		// 	changeFolderFlagNum = 0 // 重置
-		// }
 
 		// copy过来的代码
 		// fmt.Printf("------------------------------------- 发送信号, index = %v, tasklist= %v \n", i, sigpkg)
@@ -112,6 +90,8 @@ func sendTask() {
 			select {
 			// 一般来说：配置超时时间长一些，比如60s，为了备用。最终 通过msgChangeFolder 实现切换文件夹
 			case <-time.After(time.Duration(cdFolderInterval) * time.Second):
+				logrus.Info("!!!!!!!!!!!!! case 切换文件夹时间到了 cdFolderInterval")
+
 				if i+1 < len(droneObjList) { // 不加这个，数组越界
 					currentQueryTargetDrone = droneObjList[i+1] // 当前飞机，用于查询列表excel用 - 这样写，在查询等待的时间里，还是当前飞机，而不是下一个飞机了
 					currentSigDirPath = sigFolderPathList[i+1]
@@ -119,6 +99,7 @@ func sendTask() {
 				// 等待实际结束后，再重置变量。 代码放这里，解决：切换文件夹期间，查到数据，会影响文件夹切换逻辑
 				changeFolderFlagNum = 0  // 重置
 				changeFolderFlag = false // 标志重置
+
 			case <-userEndSend: // 匹配到信号，用户终止发送
 				connTCP.Close()
 				fmt.Println("sigpkg == [换文件夹】分支, userEndSend, 关闭tcp")
@@ -144,6 +125,7 @@ func sendTask() {
 			}
 			select {
 			case <-time.After(time.Duration(sigPkgSendInterval * count)):
+				// logrus.Info("!!!!!!!!!!!!! case 到发送检测时间到了 sigPkgSendInterval")
 			case <-userEndSend:
 				connTCP.Close()
 				fmt.Println("关闭tcp")

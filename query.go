@@ -33,12 +33,15 @@ var (
 	postParam     = bytes.NewBuffer([]byte(queryParam))
 	queryExcellen int
 
-	countDownTimes = noQueryTimes2NextSig // 检测到后，多少次没检测到
-	findTimes      = 0                    // 检测到飞机次数
+	countDownTimes int // 检测到后，多少次没检测到
+	findTimes      = 0 // 检测到飞机次数
 )
 
 func queryTask() {
 	fmt.Println("----进入方法: 开启查询任务, queryTask()")
+	// 初始化
+	countDownTimes = noQueryTimes2NextSig // 初始化计数器
+
 	<-sendIsStart
 	if len(queryIp) == 0 {
 		queryIp = "http://" + devIp + ":3200/graphql"
@@ -137,7 +140,7 @@ func queryTask() {
 			currentTime := time.Now()
 			droneNameIsEqual := checkAlgorithmWhereDroneNameIsEqual(droneList, currentQueryTargetDrone)                                                        // 判断是否查询到 ,true / false, 后面再写逻辑,判断true/false
 			writeQueryExcel(currentQueryTargetDrone, droneList, queryResultHasMistake, queryResultNoMistake, currentSigDirPath, currentTime, droneNameIsEqual) // 最早的参数-3个,// 表头: 时间, 飞机, 时间戳, 要查询的飞机id, 查询结果-有没有(true/ false)
-			writeQuery2Txt(currentQueryTargetDrone, droneList, queryResultHasMistake, queryResultNoMistake, currentSigDirPath, currentTime)                    // 最早的参数-3个,// 表头: 时间, 飞机, 时间戳, 要查询的飞机id, 查询结果-有没有(true/ false)
+			// writeQuery2Txt(currentQueryTargetDrone, droneList, queryResultHasMistake, queryResultNoMistake, currentSigDirPath, currentTime)                    // 最早的参数-3个,// 表头: 时间, 飞机, 时间戳, 要查询的飞机id, 查询结果-有没有(true/ false)
 			// v0.0.0.1 为了提高效率新增，一旦判断 queryResultNoMistake==true 或者queryResultNoMistake==false && queryResultHasMistake== true了，就不继续查了。发送个信号
 			// 最新逻辑，发一次信号就好了，不多发信号
 			if droneNameIsEqual && (queryResultNoMistake || queryResultHasMistake) && changeFolderFlagNum == 0 { // 如果有问题，用这个

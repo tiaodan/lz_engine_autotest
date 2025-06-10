@@ -1,0 +1,22 @@
+实现：可以更换盘符了
+
+ msg="--------------[currentSigDirPath] ==F:\\xinhao-all\\Feima(飞马)\\F1000\\900\\840"
+time="2025-05-29T15:28:40+08:00" level=error msg="出异常了, 打印错误。err=strconv.Atoi: parsing \"\": invalid syntax"
+time="2025-05-29T15:28:40+08:00" level=info msg="回放次数，sigFolderReplayNum= 0"
+
+这快有报错
+
+
+loopDir()
+
+if currentSigCount == currentDirSigNum {
+			// 尝试在这里写入excel表，并重置 sigpkgList为空
+			// 给每个信号文件夹,所有信号 = sigpkgList 排序，排序后，再加上  [换文件夹]
+			sortStringArr(sigpkgList)
+			logrus.Info("排序后的 sigpkgList= ", sigpkgList)
+
+			logrus.Info("loopFile 到最后一个信号文件")
+			// 根据信号回放次数，把sigpkgList 循环添加几次
+			logrus.Error("------------- sigFolderReplayNumMap[currentSigDirPath] ==", sigFolderReplayNumMap[currentSigDirPath])
+			logrus.Error("--------------[currentSigDirPath] ==", currentSigDirPath)
+			sigFolderReplayNum, err := strconv.Atoi(sigFolderReplayNumMap[currentSigDirPath])

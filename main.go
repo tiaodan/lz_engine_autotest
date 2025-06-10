@@ -668,9 +668,10 @@ func createFolderLink() string {
 			// 参数1： 被链接的文件 oldname string ; 参数2：链接 newname string. newName 建议用id,因为id比较唯一
 			folderNamePath := filepath.Join(folderPath, folderName)
 
-			logrus.Info("创建软链接, oldName=  ", path)
+			path_replaceDriveLetter := replaceDiskLetter(path)        // 替换盘符
+			logrus.Info("创建软链接, oldName=  ", path_replaceDriveLetter) // 原来方法：logrus.Info("创建软链接, oldName=  ", path)
 			logrus.Info("创建软链接, newName=  ", folderNamePath)
-			err = os.Symlink(path, folderNamePath)
+			err = os.Symlink(path_replaceDriveLetter, folderNamePath) // // 替换盘符 err = os.Symlink(path, folderNamePath) // 原来写法法
 			if err != nil {
 				log.Fatalf("无法创建链接: %v", err)
 			}
