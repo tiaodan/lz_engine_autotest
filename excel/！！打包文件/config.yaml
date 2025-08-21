@@ -1,0 +1,13 @@
+log:
+  level: info
+  path: app.log
+network:
+  ximalaya_ip: www.ximalaya.com
+db:
+  name: comic_test
+  user: root
+  password: password
+gin:
+  mode: release
+replay:
+  max: 3
