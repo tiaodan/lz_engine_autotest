@@ -79,11 +79,11 @@ var (
 	// 配置-机型库相关
 	dronesDb                   DroneDB           // 机型库结构体-回放信号用
 	allDronesDb                DroneDB           // 机型库结构体-all
-	dronesDbEnable             bool              // 是否根据机型库，进行自动化引擎测试
 	dronesDbPath               string            // 机型库路径 - 回放信号用
 	allDronesDbPath            string            // all机型库路径
 	sigPathMap                 map[string]string // 具体机型路径 map key value 类型 key 都是 sigPath，因为它唯一
 	sigFolderReplayNumMap      map[string]string // 要查询的机型 map, key 都是 sigPath，因为它唯一
+	sigFolderPortMap           map[string]string // 信号文件夹端口 map, key 是 sigPath，value 是端口
 	readFromConfigFolderEnable bool              // 是否从配置文件夹 读取id.txt 机型.txt
 
 	// 配置相关-并发
@@ -252,7 +252,6 @@ func todoList() {
 	logrus.Info("----------- ubuntu 是否需要管理员权限，才能创建软连接，还没测试")
 	logrus.Info("----------- id。txt 要支持正则表达式，因为id有可能是随机的")
 	logrus.Info("----------- 要写单元测试")
-	logrus.Info("----------- 把所有 if dronesDbEnable 改成if eles形式")
 	logrus.Info("----------- allDronesDb 存在数组数量不一致情况，如果excel某一行没写，allDronedB 那一行就少")
 	logrus.Info("----------- 对于不容易检测到的信号，待发送列表，创建2遍/3遍发送信号")
 	logrus.Info("----------- ready 阶段, 删除excel文件，会把子目录excel也删除")
@@ -386,169 +385,111 @@ func ready() {
 	logrus.Debug("全局变量 startTimeStr (查程序开始时间str)= ", startTimeStr)
 	logrus.Debug("全局变量 preSendHistoryFilePath (待发送信号记录文件路径)= ", preSendHistoryFilePath)
 
-	// 判断配置文件-配置 dronesDbEnable
-	if !dronesDbEnable {
-		// 生成预发送信号列表文件
-		logrus.Debug("生成预发送信号列表文件")
-		createPreSendHistoryFile(preSendHistoryFilePath)
-		// createPreSendHistoryFileHeaderTxt(preSendHistoryFileTxtPath) // txt文件表头
-		// createPreSendHistoryFileTxt(preSendHistoryFileTxtPath)       // txt文件,这个方法用不到，因为已经在上面写excel方法里createPreSendHistoryFile()，写了txt
-	}
+	/*
+		思路：
+		步骤：
+		1. 读取机型.xlsx文件，包含N列 （ID）（厂家）（品牌）（型号）（协议）（协议子类型）（频段）(详细频段) （信号文件夹名称）（信号文件夹路径)（信号文件夹是否存在) （机型.txt内容) （id.txt内容) (信号文件夹路径重复序号) 。
+		1）判断文件路径是否存在，写到xlsx文件中
+		2）判断文件是否打开，如果被别人打开了，提示关闭xlsx文件
+		3）写入 信号路径重复的 索引值，重复一个 +1
+		3）读取所有信息
+		2. 在本地目录，创建信号库的软链接文件 （直接剔除重复项）,信号
 
-	if dronesDbEnable {
-		/*
-			思路：
-			步骤：
-			1. 读取机型.xlsx文件，包含N列 （ID）（厂家）（品牌）（型号）（协议）（协议子类型）（频段）(详细频段) （信号文件夹名称）（信号文件夹路径)（信号文件夹是否存在) （机型.txt内容) （id.txt内容) (信号文件夹路径重复序号) 。
-			1）判断文件路径是否存在，写到xlsx文件中
-			2）判断文件是否打开，如果被别人打开了，提示关闭xlsx文件
-			3）写入 信号路径重复的 索引值，重复一个 +1
-			3）读取所有信息
-			2. 在本地目录，创建信号库的软链接文件 （直接剔除重复项）,信号
+		3. 创建待发送列表
+		3. 回放信号
+		4. 判断结果：软链接接相同的情况下，如果有1个已经回放完了，其它都设置成相同的结果
+		5. 生成报告 （传统方式，生成一个列表。根据机型库.xlsx，会生成另一个列表）
 
-			----- 所有逻辑，判断 dronesdbenable，不要影响原先的逻辑
-			3. 创建待发送列表
-			3. 回放信号
-			4. 判断结果：软链接接相同的情况下，如果有1个已经回放完了，其它都设置成相同的结果
-			5. 生成报告 （传统方式，生成一个列表。根据机型库.xlsx，会生成另一个列表）
+		报告 xlsx 加上索引，做一些dbutil操作。类似于操作db一样
+	*/
+	// 生成预发送信号列表文件
+	logrus.Debug("生成预发送信号列表文件")
 
-			报告 xlsx 加上索引，做一些dbutil操作。类似于操作db一样
-		*/
-		// 生成预发送信号列表文件
-		logrus.Debug("生成预发送信号列表文件")
+	// 步骤3：在本地目录，创建信号库的软链接文件 （直接剔除重复项）,信号。信号路径sigdir 改为 软链接目录。
+	// 并在目录里创建 id.txt 机型.txt
+	xinhaoTestPath := createFolderLink()
 
-		// 步骤3：在本地目录，创建信号库的软链接文件 （直接剔除重复项）,信号。信号路径sigdir 改为 软链接目录。
-		// 并在目录里创建 id.txt 机型.txt
-		xinhaoTestPath := createFolderLink()
+	// 步骤4：把信号包总路径 改为 软连接的。不影响后续逻辑
+	sigDir = xinhaoTestPath
 
-		// 步骤4：把信号包总路径 改为 软连接的。不影响后续逻辑
-		sigDir = xinhaoTestPath
+	createPreSendHistoryFile(preSendHistoryFilePath)
 
-		createPreSendHistoryFile(preSendHistoryFilePath)
+	logrus.Debug("ready end 阶段, dronesDb.SigFolderPath = ", dronesDb.SigFolderPath)
+	logrus.Debug("ready end 阶段, dronesDb = ", dronesDb)
+	logrus.Debug("ready end 阶段, allDronesDb.SigFolderPath = ", allDronesDb.SigFolderPath)
+	logrus.Debug("ready end 阶段, allDronesDb = ", allDronesDb)
 
-		// createPreSendHistoryFileHeaderTxt(preSendHistoryFileTxtPath) // txt文件表头
-		// createPreSendHistoryFileTxt(preSendHistoryFileTxtPath)       // txt文件,这个方法用不到，因为已经在上面写excel方法里createPreSendHistoryFile()，写了txt
-
-		logrus.Debug("ready end 阶段, dronesDb.SigFolderPath = ", dronesDb.SigFolderPath)
-		logrus.Debug("ready end 阶段, dronesDb = ", dronesDb)
-		logrus.Debug("ready end 阶段, allDronesDb.SigFolderPath = ", allDronesDb.SigFolderPath)
-		logrus.Debug("ready end 阶段, allDronesDb = ", allDronesDb)
-	}
 	logrus.Info("------------ ready 阶段 end")
 }
 
 // 功能 feed 流程
 func feed() {
-	// 不启用 机型库 写法
-	if !dronesDbEnable {
-		logrus.Info("------------feed 阶段 start")
-		// 1. 创建或者打开文件
-		preSendHistoryFile, err = createOrOpenExcelFile(preSendHistoryFilePath)
-		errorPanic(err)
+	logrus.Info("------------feed 阶段 start")
 
-		// 步骤3：发送信号      - 原来的 feed 环节
-		go sendTask()
-		queryTask()
+	logrus.Debug("feed start 阶段, dronesDb.SigFolderPath = ", dronesDb.SigFolderPath)
+	logrus.Debug("feed start 阶段, dronesDb = ", dronesDb)
 
-		logrus.Info("------------feed 阶段 end")
-	}
+	// 1. 创建或者打开文件
+	preSendHistoryFile, err = createOrOpenExcelFile(preSendHistoryFilePath)
+	errorPanic(err)
 
-	// 启用 机型库 写法
-	if dronesDbEnable {
-		logrus.Info("------------feed 阶段 start")
+	// 步骤3：发送信号      - 原来的 feed 环节
+	go sendTask()
+	queryTask()
 
-		logrus.Debug("feed start 阶段, dronesDb.SigFolderPath = ", dronesDb.SigFolderPath)
-		logrus.Debug("feed start 阶段, dronesDb = ", dronesDb)
-
-		// 1. 创建或者打开文件
-		preSendHistoryFile, err = createOrOpenExcelFile(preSendHistoryFilePath)
-		errorPanic(err)
-
-		// 步骤3：发送信号      - 原来的 feed 环节
-		go sendTask()
-		queryTask()
-
-		logrus.Info("------------feed 阶段 end")
-		logrus.Debug("feed end 阶段, dronesDb.SigFolderPath = ", dronesDb.SigFolderPath)
-		logrus.Debug("feed end 阶段, dronesDb = ", dronesDb)
-	}
+	logrus.Info("------------feed 阶段 end")
+	logrus.Debug("feed end 阶段, dronesDb.SigFolderPath = ", dronesDb.SigFolderPath)
+	logrus.Debug("feed end 阶段, dronesDb = ", dronesDb)
 
 }
 
 // 功能 并发 feed 流程
 func concurrencyFeed() {
-	// 启用 机型库 写法
-	if dronesDbEnable {
-		logrus.Info("------------feed 阶段 start")
+	logrus.Info("------------feed 阶段 start")
 
-		logrus.Debug("feed start 阶段, dronesDb.SigFolderPath = ", dronesDb.SigFolderPath)
-		logrus.Debug("feed start 阶段, dronesDb = ", dronesDb)
+	logrus.Debug("feed start 阶段, dronesDb.SigFolderPath = ", dronesDb.SigFolderPath)
+	logrus.Debug("feed start 阶段, dronesDb = ", dronesDb)
 
-		// 1. 创建或者打开文件
-		preSendHistoryFile, err = createOrOpenExcelFile(preSendHistoryFilePath)
-		errorPanic(err)
+	// 1. 创建或者打开文件
+	preSendHistoryFile, err = createOrOpenExcelFile(preSendHistoryFilePath)
+	errorPanic(err)
 
-		// 步骤3：发送信号      - 原来的 feed 环节
-		concurrencySendTask()
+	// 步骤3：发送信号      - 原来的 feed 环节
+	concurrencySendTask()
 
-		logrus.Info("------------feed 阶段 end")
-		logrus.Debug("feed end 阶段, dronesDb.SigFolderPath = ", dronesDb.SigFolderPath)
-		logrus.Debug("feed end 阶段, dronesDb = ", dronesDb)
-	} else {
-		logrus.Error("------------feed 阶段 请打开机型库开关: dronesDbEnable")
-	}
+	logrus.Info("------------feed 阶段 end")
+	logrus.Debug("feed end 阶段, dronesDb.SigFolderPath = ", dronesDb.SigFolderPath)
+	logrus.Debug("feed end 阶段, dronesDb = ", dronesDb)
 
 }
 
 // 功能 report 流程
 func report() {
-	// 不启用机型库文件 配置
-	if !dronesDbEnable {
-		logrus.Info("--------------- report 阶段 进入分支： !dronesDbEnable ---------------")
-		logrus.Info("--------------- report 阶段 start ---------------")
-		// 1. 创建或者打开文件
-		queryHistroyFile, err = createOrOpenExcelFile(queryHistroyFilePath)
-		errorPanic(err)
-		// 步骤4：判断设备检测的是否对   - 原来的 report 环节
-		// 比较
-		// 生成报告
-		// queryHistroyFilePath = "查询列表20241204-101626.xlsx"                   // 注释：临时测试report模块时用，属于测试代码
-		// queryHistroyFile, err = createOrOpenExcelFile(queryHistroyFilePath) // 注释：临时测试report模块时用，属于测试代码
-		createReport()
-		logrus.Info("--------------- report 阶段 end ---------------")
-	}
+	logrus.Info("--------------- report 阶段 start ---------------")
+	// 1. 创建或者打开文件
+	queryHistroyFile, err = createOrOpenExcelFile(queryHistroyFilePath)
+	errorPanic(err)
+	// 步骤4：判断设备检测的是否对   - 原来的 report 环节
+	// 比较
+	// 生成报告
+	createReport()
 
-	// 启用机型库文件 配置
-	if dronesDbEnable {
-		logrus.Info("--------------- report 阶段 进入分支： dronesDbEnable ---------------")
-		logrus.Info("--------------- report 阶段 start ---------------")
+	logrus.Debug("report start 阶段, dronesDb.SigFolderPath = ", dronesDb.SigFolderPath)
+	logrus.Debug("report start 阶段, dronesDb = ", dronesDb)
+	logrus.Debug("report start 阶段, allDronesDb.SigFolderPath = ", allDronesDb.SigFolderPath)
+	logrus.Debug("report start 阶段, allDronesDb = ", allDronesDb)
 
-		// 1. 创建或者打开文件
-		queryHistroyFile, err = createOrOpenExcelFile(queryHistroyFilePath)
-		errorPanic(err)
+	// 步骤5：判断设备检测的是否对   - 原来的 report 环节
+	// 比较
+	createReport()
+	// 步骤6：分析报告-关联 机型库(已经回放信号的)
+	createReportRelateSigReplayDronesDb()
+	// 步骤7：分析报告-关联 最全机型库
+	createReportRelateAllDronesDb()
 
-		logrus.Debug("report start 阶段, dronesDb.SigFolderPath = ", dronesDb.SigFolderPath)
-		logrus.Debug("report start 阶段, dronesDb = ", dronesDb)
-		logrus.Debug("report start 阶段, allDronesDb.SigFolderPath = ", allDronesDb.SigFolderPath)
-		logrus.Debug("report start 阶段, allDronesDb = ", allDronesDb)
-		logrus.Info("--------- report 阶段 dronesDbEnable = ", dronesDbEnable)
-
-		// 步骤5：判断设备检测的是否对   - 原来的 report 环节
-		// 比较
-		createReport()
-		// 步骤6：分析报告-关联 机型库(已经回放信号的)
-		createReportRelateSigReplayDronesDb()
-		// 步骤7：分析报告-关联 最全机型库
-		createReportRelateAllDronesDb()
-
-		logrus.Info("--------------- report 阶段 end ---------------")
-		// logrus.Info("report end 阶段, dronesDb.SigFolderPath = ", dronesDb.SigFolderPath)
-		// logrus.Info("report end 阶段, dronesDb = ", dronesDb)
-		// logrus.Info("report end 阶段, allDronesDb.SigFolderPath = ", allDronesDb.SigFolderPath)
-		// logrus.Info("report end 阶段, allDronesDb = ", allDronesDb)
-		logrus.Debug("report end 阶段, dronesDb.SigFolderPath.len = ", len(dronesDb.SigFolderPath))
-		logrus.Debug("report end 阶段, allDronesDb.SigFolderPath.len = ", len(allDronesDb.SigFolderPath))
-	}
+	logrus.Info("--------------- report 阶段 end ---------------")
+	logrus.Debug("report end 阶段, dronesDb.SigFolderPath.len = ", len(dronesDb.SigFolderPath))
+	logrus.Debug("report end 阶段, allDronesDb.SigFolderPath.len = ", len(allDronesDb.SigFolderPath))
 
 }
 

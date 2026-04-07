@@ -295,40 +295,20 @@ func dirExistDir(dirPath string) bool {
 1. bool
 */
 func dirIsEndDir(dirPath string) bool {
-	// 不启用机型库 配置 写法
-	if !dronesDbEnable {
-		files, err := os.ReadDir(dirPath)
-		if err != nil {
-			logrus.Error("func=dirIsEndDir(), 目录不存在, Error reading directory: ", err)
-			return false
-		}
-
-		for _, file := range files {
-			if file.IsDir() {
-				return false
-			}
-		}
-		return true
+	files, err := os.ReadDir(dirPath)
+	if err != nil {
+		logrus.Error("func=dirIsEndDir(), 目录不存在, Error reading directory: ", err)
+		return false
 	}
 
-	// 启用机型库 配置 写法
-	if dronesDbEnable {
-		files, err := os.ReadDir(dirPath)
-		if err != nil {
-			logrus.Error("func=dirIsEndDir(), 目录不存在, Error reading directory: ", err)
+	for _, file := range files {
+		fileInfo, err := os.Lstat(filepath.Join(dirPath, file.Name()))
+		errorPanic(err)
+		if fileInfo.IsDir() || (fileInfo.Mode()&os.ModeSymlink != 0) { // 是文件夹 或者链接形式文件夹
 			return false
 		}
-
-		for _, file := range files {
-			fileInfo, err := os.Lstat(filepath.Join(dirPath, file.Name()))
-			errorPanic(err)
-			if fileInfo.IsDir() || (fileInfo.Mode()&os.ModeSymlink != 0) { // 是文件夹 或者链接形式文件夹
-				return false
-			}
-		}
-		return true
 	}
-	return false
+	return true
 }
 
 /*
