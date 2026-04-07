@@ -26,7 +26,6 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
-	"github.com/spf13/viper"
 	"github.com/xuri/excelize/v2"
 )
 
@@ -412,17 +411,9 @@ func ready() {
 	queryHistroyFileTxtPath = "查询列表" + startTimeStr + ".txt" // 查询记录文件txt 路径
 	reportFilePath = "分析报告" + startTimeStr + ".xlsx"         // 查询文件路径
 
-	// 设置配置文件，当前时间
-	// viper.SetConfigName("config") // 设置 配置文件名 eg: viper.SetConfigName("config")
-	// viper.SetConfigType("ini")    // 设置 配置文件后缀名 eg: viper.SetConfigType("ini")
-	// viper.AddConfigPath(".")      // 设置 配置文件路径 eg: viper.AddConfigPath(".")
-	viper.Set("time.startTime", startTimeStr)
-	viper.Set("file.presendhistoryfilepath", preSendHistoryFilePath)
-	viper.Set("file.queryhistroyfilePath", queryHistroyFilePath)
-	viper.Set("file.reportfilepath", reportFilePath)
+	// 写入配置文件（保留注释和格式）
+	writeConfigFile()
 
-	err = viper.WriteConfig() // 写到配置文件里
-	errorPanic(err)
 	// 打印变量
 	logrus.Debug("全局变量 startTime (程序开始时间)= ", startTime)
 	logrus.Debug("全局变量 startTimeStr (查程序开始时间str)= ", startTimeStr)
@@ -463,6 +454,65 @@ func ready() {
 	logrus.Debug("ready end 阶段, allDronesDb = ", allDronesDb)
 
 	logrus.Info("------------ ready 阶段 end")
+}
+
+// 写入配置文件（保留注释、大小写、原始格式）
+func writeConfigFile() {
+	content, err := os.ReadFile("config.ini")
+	if err != nil {
+		logrus.Error("读取配置文件失败: ", err)
+		return
+	}
+
+	lines := strings.Split(string(content), "\n")
+	newLines := make([]string, 0, len(lines))
+
+	for _, line := range lines {
+		trimmedLine := strings.TrimSpace(line)
+
+		// 跳过空行和注释行，直接保留
+		if trimmedLine == "" || strings.HasPrefix(trimmedLine, "#") || strings.HasPrefix(trimmedLine, ";") {
+			newLines = append(newLines, line)
+			continue
+		}
+
+		// 处理 section 行，直接保留
+		if strings.HasPrefix(trimmedLine, "[") && strings.HasSuffix(trimmedLine, "]") {
+			newLines = append(newLines, line)
+			continue
+		}
+
+		// 处理 key=value 行
+		parts := strings.SplitN(trimmedLine, "=", 2)
+		if len(parts) != 2 {
+			newLines = append(newLines, line)
+			continue
+		}
+
+		key := strings.TrimSpace(parts[0])
+		keyLower := strings.ToLower(key)
+		// 保留原始 key 大小写，只替换值
+		switch keyLower {
+		case "starttime":
+			newLines = append(newLines, key+"="+startTimeStr)
+		case "presendhistoryfilepath":
+			newLines = append(newLines, key+"="+preSendHistoryFilePath)
+		case "queryhistroyfilepath":
+			newLines = append(newLines, key+"="+queryHistroyFilePath)
+		case "reportfilepath":
+			newLines = append(newLines, key+"="+reportFilePath)
+		default:
+			newLines = append(newLines, line)
+		}
+	}
+
+	output := strings.Join(newLines, "\n")
+	err = os.WriteFile("config.ini", []byte(output), 0644)
+	if err != nil {
+		logrus.Error("保存配置文件失败: ", err)
+		return
+	}
+	logrus.Debug("配置文件已更新")
 }
 
 // 功能 feed 流程

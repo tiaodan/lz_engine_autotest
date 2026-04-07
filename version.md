@@ -15,3 +15,6 @@ AI 改前提交
 - 在 config.ini 中添加 [scheduler] 配置节
 - 配置项：enable(开关)、hour(小时)、minute(分钟)、command(执行命令)
 - 示例：每天16点执行命令6（一键执行步骤5、4）
+
+# v0.0.0.6
+优化: 配置文件更清晰
