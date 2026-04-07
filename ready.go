@@ -106,6 +106,12 @@ func readLowerConfig(configName string, configSuffix string, configRelPath strin
 	concurrencySigRepeatNum = viper.GetInt("concurrency.concurrencysigrepeatnum")     // 信号发送循环次数
 	readFromConfigFolderEnable = viper.GetBool("dronesdb.readfromconfigfolderenable") // 是否从配置文件夹 读取id.txt 机型.txt
 
+	// 读取定时任务配置
+	schedulerEnable = viper.GetBool("scheduler.enable")   // 定时任务开关
+	schedulerHour = viper.GetInt("scheduler.hour")       // 定时任务执行时间-小时
+	schedulerMinute = viper.GetInt("scheduler.minute")   // 定时任务执行时间-分钟
+	schedulerCommand = viper.GetInt("scheduler.command") // 定时任务要执行的命令
+
 	// 读取配置开始时间
 	preSendHistoryFilePath = viper.GetString("file.presendhistoryfilepath")
 	preSendHistoryFileSheetName = "待发送列表"
@@ -139,6 +145,10 @@ func readLowerConfig(configName string, configSuffix string, configRelPath strin
 	logrus.Info("配置 noQueryTimes2NextSig ( 查不到多少次后，跳到下一个号)= ", noQueryTimes2NextSig)
 	logrus.Info("配置 afterQueriedWaitTimes ( 查到后，再多查几次，直到信号完全消失)= ", afterQueriedWaitTimes)
 	logrus.Info("配置 driveLetter (磁盘盘符)= ", driveLetter)
+	logrus.Info("配置 schedulerEnable (定时任务开关)= ", schedulerEnable)
+	logrus.Info("配置 schedulerHour (定时任务执行时间-小时)= ", schedulerHour)
+	logrus.Info("配置 schedulerMinute (定时任务执行时间-分钟)= ", schedulerMinute)
+	logrus.Info("配置 schedulerCommand (定时任务要执行的命令)= ", schedulerCommand)
 }
 
 /*

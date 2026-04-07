@@ -91,6 +91,12 @@ var (
 	concurrencyNum          int  //  并发个数
 	concurrencySigRepeatNum int  //  信号发送循环次数
 
+	// 配置相关-定时任务
+	schedulerEnable  bool // 定时任务开关
+	schedulerHour    int  // 定时任务执行时间-小时
+	schedulerMinute  int  // 定时任务执行时间-分钟
+	schedulerCommand int  // 定时任务要执行的命令
+
 	// 文件相关
 	preSendHistoryFilePath      string         // 预发送记录文件 路径
 	preSendHistoryFileSheetName string         // 预发送记录文件 sheetName = "待发送列表"
@@ -265,6 +271,46 @@ func todoList() {
 func main() {
 	// todoList() // 待办事项，后面删
 
+	// 先读取配置，检查是否有定时任务
+	readLowerConfig("config", "ini", ".")
+
+	// 检查是否启用定时任务
+	if schedulerEnable {
+		runScheduler()
+		return
+	}
+
+	// 没有定时任务，显示交互式菜单
+	showMenu()
+}
+
+// 定时任务执行
+func runScheduler() {
+	now := time.Now()
+	// 计算今天的执行时间
+	scheduledTime := time.Date(now.Year(), now.Month(), now.Day(), schedulerHour, schedulerMinute, 0, 0, now.Location())
+
+	// 如果今天的执行时间已过，则安排到明天
+	if scheduledTime.Before(now) {
+		scheduledTime = scheduledTime.Add(24 * time.Hour)
+		logrus.Infof("今天的执行时间已过，安排到明天 %s 执行", scheduledTime.Format("2006-01-02 15:04:05"))
+	}
+
+	duration := scheduledTime.Sub(now)
+	logrus.Infof("定时任务已启用，将在 %s 执行命令 %d", scheduledTime.Format("2006-01-02 15:04:05"), schedulerCommand)
+	logrus.Infof("距离执行还有 %v", duration)
+
+	// 等待到执行时间
+	time.Sleep(duration)
+
+	// 执行命令
+	logrus.Infof("定时任务开始执行，执行命令: %d", schedulerCommand)
+	programInit() // 程序初始化
+	executeCommand(fmt.Sprintf("%d", schedulerCommand))
+}
+
+// 显示交互式菜单
+func showMenu() {
 	reader := bufio.NewReader(os.Stdin)
 	fmt.Println("请输入要执行的命令：")
 	fmt.Println("1 - ready")
@@ -279,39 +325,37 @@ func main() {
 	input = strings.TrimSpace(input)
 
 	programInit() // 程序初始化
+	executeCommand(input)
+}
+
+// 执行命令
+func executeCommand(input string) {
 	switch input {
 	case "1":
 		logrus.Info("执行 ready 命令")
-		// 执行对应的命令代码
 		ready()
 	case "2":
 		logrus.Info("执行 feed 命令")
-		// 执行对应的命令代码
 		feed()
 	case "3":
 		logrus.Info("执行 report 命令")
-		// 执行对应的命令代码
 		report()
 	case "4":
 		logrus.Info("一键执行以上所有命令")
-		// 执行对应的命令代码
 		ready()
 		feed()
 		report()
 	case "5":
 		logrus.Info("删除当前目录 xlsx文件, txt文件")
-		// 执行对应的命令代码
 		deleteHistroyFile()
 	case "6":
 		logrus.Info("一键执行 步骤5、4")
-		// 执行对应的命令代码
 		deleteHistroyFile()
 		ready()
 		feed()
 		report()
 	case "7":
 		logrus.Info("并发发送信号")
-		// 执行对应的命令代码
 		ready()
 		concurrencyFeed()
 	case "0":
@@ -320,7 +364,6 @@ func main() {
 	default:
 		logrus.Info("无效输入，请重新输入")
 	}
-
 }
 
 // 功能: 程序初始，把ready() feed() report() 初始化操作，都放在这，在main()方法调用

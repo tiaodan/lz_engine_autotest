@@ -8,4 +8,10 @@
 AI 改前提交
 
 # v0.0.0.4
-优化代码：删除dronesdbenable = false 的大量逻辑判断，此配置弃用 1
+优化代码：删除dronesdbenable = false 的大量逻辑判断，此配置弃用
+
+# v0.0.0.5
+新增定时任务功能：
+- 在 config.ini 中添加 [scheduler] 配置节
+- 配置项：enable(开关)、hour(小时)、minute(分钟)、command(执行命令)
+- 示例：每天16点执行命令6（一键执行步骤5、4）
