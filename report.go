@@ -97,7 +97,7 @@ func createReport() {
 			logrus.Debug("boolResultNoMistakeList = ", boolResultNoMistakeList)
 			logrus.Debug("boolResultNoMistakeList = ", boolResultHasMistakeList)
 			oneSigReportResult, errorReason := checkAlgorithmWhereQueryResult(boolResultDroneNameEqualList, boolResultNoMistakeList, boolResultHasMistakeList)
-			logrus.Infof("report 单个信号包,结果。currentSigFolderDir=%v, currentDroneStr=%v, oneSigReportResult =%v ", currentSigFolderDir, currentDroneStr, oneSigReportResult)
+			logrus.Infof("report 单个信号包,结果. oneSigReportResult= [%v]。currentSigFolderDir=%v, currentDroneStr=%v", oneSigReportResult, currentSigFolderDir, currentDroneStr)
 
 			// 写入行内容
 			tableRow := []Any{"厂家??", currentSigFolderDir, currentDroneStr, oneSigReportResult, errorReason, totalTimeStr}
