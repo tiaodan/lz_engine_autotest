@@ -59,6 +59,7 @@ type DroneDB struct {
 	SigFolderPathRepeatNum []int    `json:"sigFolderPathRepeatNum"` // 信号文件夹路径重复数量
 	SeaFilePath            []string `json:"seaFilePath"`            // 信号seafile链接
 	SigFolderReplayNum     []string `json:"sigFolderReplayNum"`     // 信号文件夹重复回放次数
+	ReplayPort             []string `json:"replayPort"`             // 回放端口（Q列）
 }
 
 // 全局变量
@@ -84,6 +85,9 @@ var (
 	sigFolderReplayNumMap      map[string]string // 要查询的机型 map, key 都是 sigPath，因为它唯一
 	sigFolderPortMap           map[string]string // 信号文件夹端口 map, key 是 sigPath，value 是端口
 	readFromConfigFolderEnable bool              // 是否从配置文件夹 读取id.txt 机型.txt
+
+	// 发送相关
+	defaultSendPort = "8000" // 默认发送端口
 
 	// 配置相关-并发
 	concurrencyEnable       bool //  并发开关。如果打开了，同时发送N个信号

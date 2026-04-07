@@ -383,6 +383,7 @@ func getRowsFromExcel(path string, sheetName string) DroneDB {
 	// 将dronesDb 的内容存到一个map,方便后续调用
 	sigPathMap = make(map[string]string)            // 具体机型路径 map key value 类型 key 都是 sigPath，因为它唯一
 	sigFolderReplayNumMap = make(map[string]string) // 要查询的机型 map, key 都是 sigPath，因为它唯一
+	sigFolderPortMap = make(map[string]string)      // 信号文件夹端口 map, key 是 sigPath，value 是端口
 
 	index := 2
 	for rows.Next() {
@@ -486,6 +487,16 @@ func getRowsFromExcel(path string, sheetName string) DroneDB {
 		// 设置全局变量 map
 		sigPathMap[sigFolderPath] = sigFolderPath
 		sigFolderReplayNumMap[sigFolderPath] = sigFolderReplayNumStr // 信号重复次数
+
+		// 读取 Q 列：回放端口
+		replayPort, err := file.GetCellValue(sheetName, "Q"+strconv.Itoa(index)) // 回放端口
+		errorPanic(err)
+		replayPortStr := strings.TrimSpace(replayPort)
+		if replayPortStr == "" {
+			replayPortStr = defaultSendPort // 默认端口 8000
+		}
+		dronesDb.ReplayPort = append(dronesDb.ReplayPort, replayPortStr)
+		sigFolderPortMap[sigFolderPath] = replayPortStr // 信号文件夹端口
 
 		index++
 	}
@@ -612,6 +623,15 @@ func getAllDronesDbFromExcel(path string, sheetName string) DroneDB {
 			sigFolderReplayNumStr = "1"
 		}
 		allDronesDb.SigFolderReplayNum = append(allDronesDb.SigFolderReplayNum, sigFolderReplayNum)
+
+		// 回放端口（Q列）
+		replayPort, err := file.GetCellValue(sheetName, "Q"+strconv.Itoa(index)) // 回放端口
+		errorPanic(err)
+		replayPortStr := strings.TrimSpace(replayPort)
+		if replayPortStr == "" {
+			replayPortStr = defaultSendPort
+		}
+		allDronesDb.ReplayPort = append(allDronesDb.ReplayPort, replayPortStr)
 
 		index++
 	}

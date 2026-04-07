@@ -19,12 +19,13 @@ import (
 
 var addrTCP *net.TCPAddr
 var connTCP *net.TCPConn
+var currentSendPort string // 当前连接的端口
 
-// 发送初始化
-func sendInit() {
-	fmt.Println("----进入方法: 开启发送任务 init , sendInit()")
+// 发送初始化，port 为端口号
+func sendInitWithPort(port string) {
+	fmt.Println("----进入方法: 开启发送任务 init , sendInitWithPort(), port=", port)
 	var err error
-	addrTCP, err = net.ResolveTCPAddr("tcp", devIp+":8000")
+	addrTCP, err = net.ResolveTCPAddr("tcp", devIp+":"+port)
 	errorPanic(err)
 	fmt.Println("正在连接tcp")
 	for i := 0; i < 5; i++ {
@@ -35,12 +36,50 @@ func sendInit() {
 			time.Sleep(time.Duration(i) * time.Second)
 		} else {
 			sendIsStart <- any // 发送信号：发送程序开始
-			fmt.Println("tcp拨号成功")
+			currentSendPort = port
+			fmt.Println("tcp拨号成功, 端口=", port)
 			return
 		}
 	}
 	fmt.Println("tcp连接失败，本次运行结束")
 	errorPanic(err)
+}
+
+// 发送初始化（默认端口）
+func sendInit() {
+	sendInitWithPort(defaultSendPort)
+}
+
+// 检查并切换端口（如果需要）
+func checkAndSwitchPort(sigFolderPath string) {
+	port := sigFolderPortMap[sigFolderPath]
+	if port == "" {
+		port = defaultSendPort
+	}
+	if port != currentSendPort {
+		logrus.Infof("端口变化: %s -> %s, 重新连接", currentSendPort, port)
+		if connTCP != nil {
+			connTCP.Close()
+		}
+		var err error
+		addrTCP, err = net.ResolveTCPAddr("tcp", devIp+":"+port)
+		if err != nil {
+			logrus.Error("解析TCP地址失败: ", err)
+			return
+		}
+		for i := 0; i < 5; i++ {
+			connTCP, err = net.DialTCP("tcp", nil, addrTCP)
+			if err != nil {
+				logrus.Errorf("tcp连接失败，重试第%d次\n", i+1)
+				time.Sleep(time.Duration(i) * time.Second)
+			} else {
+				currentSendPort = port
+				logrus.Info("tcp重连成功, 端口=", port)
+				return
+			}
+		}
+		logrus.Error("tcp重连失败")
+	}
 }
 
 func sendTask() {
@@ -55,14 +94,26 @@ func sendTask() {
 	sigFolderPathList = getSigFolderPathFromPreSendHistoryFile(preSendHistoryFilePath, "待发送列表")
 	logrus.Debug("func=sendTask(), sigFolderPathList= ", sigFolderPathList)
 
-	sendInit()
+	// 获取第一个信号文件夹的端口，用于初始化连接
+	firstPort := defaultSendPort
+	if len(sigFolderPathList) > 0 {
+		port := sigFolderPortMap[sigFolderPathList[0]]
+		if port != "" {
+			firstPort = port
+		}
+	}
+	sendInitWithPort(firstPort)
+
+	// 设置当前飞机和信号文件夹路径
+	if len(sigFolderPathList) > 0 {
+		currentSigDirPath = sigFolderPathList[0]
+	}
+	if len(droneObjList) > 0 {
+		currentQueryTargetDrone = droneObjList[0]
+	}
+
 	// changeFolderFlag := false // 换文件夹标志
 	for i, sigpkg := range sigpkgList {
-		// 设置当前飞机，我自己加的代码
-		if i == 0 {
-			currentQueryTargetDrone = droneObjList[i] // 当前飞机，用于查询列表excel用
-			currentSigDirPath = sigFolderPathList[i]  // 当前信号文件夹路径
-		}
 
 		// logrus.Infof("index=%v, 切换信号文件夹标志 changeFolderFlag =%v, changeFolderFlagNum=%v", i, changeFolderFlag, changeFolderFlagNum)
 		if sigpkg != "[换文件夹]" && changeFolderFlag && changeFolderFlagNum == 1 { // 切换文件夹消息数量==1时才认，只认收到的第一条消息
@@ -95,6 +146,8 @@ func sendTask() {
 				if i+1 < len(droneObjList) { // 不加这个，数组越界
 					currentQueryTargetDrone = droneObjList[i+1] // 当前飞机，用于查询列表excel用 - 这样写，在查询等待的时间里，还是当前飞机，而不是下一个飞机了
 					currentSigDirPath = sigFolderPathList[i+1]
+					// 检查并切换端口
+					checkAndSwitchPort(currentSigDirPath)
 				}
 				// 等待实际结束后，再重置变量。 代码放这里，解决：切换文件夹期间，查到数据，会影响文件夹切换逻辑
 				changeFolderFlagNum = 0  // 重置
@@ -109,6 +162,8 @@ func sendTask() {
 				if i+1 < len(droneObjList) { // 不加这个，数组越界
 					currentQueryTargetDrone = droneObjList[i+1] // 当前飞机，用于查询列表excel用 - 这样写，在查询等待的时间里，还是当前飞机，而不是下一个飞机了
 					currentSigDirPath = sigFolderPathList[i+1]
+					// 检查并切换端口
+					checkAndSwitchPort(currentSigDirPath)
 				}
 				// 等待实际结束后，再重置变量。 代码放这里，解决：切换文件夹期间，查到数据，会影响文件夹切换逻辑
 				changeFolderFlagNum = 0  // 重置
@@ -121,10 +176,11 @@ func sendTask() {
 				logrus.Error("发送失败", sigpkg)
 			} else {
 				// writeSendExcel(i, ts, t)
-				// logrus.Info("发送成功", sigpkg)
+				logrus.Debugf("发送成功, sig=%v, 字节数=%v, 间隔=%vms", sigpkg, count, sigPkgSendInterval*count/1000000)
 			}
+			waitDuration := time.Duration(sigPkgSendInterval * count)
 			select {
-			case <-time.After(time.Duration(sigPkgSendInterval * count)):
+			case <-time.After(waitDuration):
 				// logrus.Info("!!!!!!!!!!!!! case 到发送检测时间到了 sigPkgSendInterval")
 			case <-userEndSend:
 				connTCP.Close()
