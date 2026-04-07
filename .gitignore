@@ -2,6 +2,7 @@
 
 # engine exe文件
 engine_autotest.exe
+lz_engine_autotest.exe
 
 .claude
 .vscode

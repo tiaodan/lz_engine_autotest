@@ -88,16 +88,17 @@ func createAndWriteFile(filePath string, content string) error {
 	_, err := os.Stat(filePath)
 	if err == nil {
 		logrus.Info("文件已存在, 不创建")
-		return err
+		return nil // 文件已存在，返回nil表示成功
 	}
 
 	// 创建新文件
 	// file, err := os.Create(filePath) // 写入文件，就不推荐了
 	file, err := os.OpenFile(filePath, os.O_RDWR|os.O_CREATE, 0666) // 另一种写法,这种更推荐
-	defer file.Close()
 	if err != nil {
 		logrus.Error("文件创建或打开失败,err= ", err)
+		return err
 	}
+	defer file.Close()
 
 	// 写入内容
 	_, err = file.WriteString(content)

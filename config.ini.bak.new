@@ -13,10 +13,10 @@ ReadFromConfigFolderEnable=true  # 是否从配置文件夹读取id.txt和机型
 # 文件路径配置
 [file]
 ErrorHistoryFilePath=      # 错误历史文件路径（可选）
-PreSendHistoryFilePath=待发送列表-20260407-191926.xlsx    # 待发送列表文件
+PreSendHistoryFilePath=待发送列表-20260407-190945.xlsx    # 待发送列表文件
 QueryHistoryFilePath=查询列表20260407-164800.xlsx        # 查询历史文件
-QueryHistroyFilePath=查询列表20260407-191926.xlsx    # 查询历史文件（备用）
-ReportFilePath=分析报告20260407-191926.xlsx    # 分析报告文件
+QueryHistroyFilePath=查询列表20260407-190945.xlsx        # 查询历史文件（备用）
+ReportFilePath=分析报告20260407-190945.xlsx              # 分析报告文件
 
 # 日志配置
 [log]
@@ -49,4 +49,4 @@ SigPkgSendInterval=28       # 发送间隔时间(ms/MB)
 
 # 时间配置
 [time]
-StartTime=20260407-191926    # 程序开始时间
+StartTime=20260407-190945    # 程序开始时间

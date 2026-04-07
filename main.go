@@ -474,8 +474,8 @@ func writeConfigFile() {
 	for _, line := range lines {
 		trimmedLine := strings.TrimSpace(line)
 
-		// 跳过空行和注释行，直接保留
-		if trimmedLine == "" || strings.HasPrefix(trimmedLine, "#") || strings.HasPrefix(trimmedLine, ";") {
+		// 跳过空行和纯注释行（以#或;开头），直接保留
+		if trimmedLine == "" {
 			newLines = append(newLines, line)
 			continue
 		}
@@ -486,8 +486,21 @@ func writeConfigFile() {
 			continue
 		}
 
-		// 处理 key=value 行
-		parts := strings.SplitN(trimmedLine, "=", 2)
+		// 处理 key=value 行（可能有行内注释）
+		// 先分离行内注释
+		var keyPart, commentPart string
+		if idx := strings.Index(trimmedLine, "#"); idx > 0 {
+			keyPart = strings.TrimSpace(trimmedLine[:idx])
+			commentPart = trimmedLine[idx:]
+		} else if idx := strings.Index(trimmedLine, ";"); idx > 0 {
+			keyPart = strings.TrimSpace(trimmedLine[:idx])
+			commentPart = trimmedLine[idx:]
+		} else {
+			keyPart = trimmedLine
+		}
+
+		// 解析 key=value
+		parts := strings.SplitN(keyPart, "=", 2)
 		if len(parts) != 2 {
 			newLines = append(newLines, line)
 			continue
@@ -495,19 +508,30 @@ func writeConfigFile() {
 
 		key := strings.TrimSpace(parts[0])
 		keyLower := strings.ToLower(key)
-		// 保留原始 key 大小写，只替换值
+
+		// 根据key更新值，保留原始key大小写和行内注释
+		var newValue string
 		switch keyLower {
 		case "starttime":
-			newLines = append(newLines, key+"="+startTimeStr)
+			newValue = startTimeStr
 		case "presendhistoryfilepath":
-			newLines = append(newLines, key+"="+preSendHistoryFilePath)
+			newValue = preSendHistoryFilePath
 		case "queryhistroyfilepath":
-			newLines = append(newLines, key+"="+queryHistroyFilePath)
+			newValue = queryHistroyFilePath
 		case "reportfilepath":
-			newLines = append(newLines, key+"="+reportFilePath)
+			newValue = reportFilePath
 		default:
+			// 不需要更新的key，保持原样
 			newLines = append(newLines, line)
+			continue
 		}
+
+		// 构建新行：保留原始key，新值，保留行内注释
+		newLine := key + "=" + newValue
+		if commentPart != "" {
+			newLine = newLine + "    " + commentPart
+		}
+		newLines = append(newLines, newLine)
 	}
 
 	output := strings.Join(newLines, "\n")
@@ -660,7 +684,7 @@ func createFolderLink() string {
 	// 先删除当前目录 xinhao-test目录
 	xinhaoTestPath := filepath.Join(currentDir, "xinhao-test")
 	logrus.Info("xinhaoTestPath 目录= ", xinhaoTestPath)
-	os.RemoveAll(xinhaoTestPath)
+	err = os.RemoveAll(xinhaoTestPath)
 	if err != nil {
 		log.Fatalf("无法删除文件夹 xinhao-test : %v", err)
 	}
