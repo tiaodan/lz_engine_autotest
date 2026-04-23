@@ -590,10 +590,6 @@ func report() {
 	// 1. 创建或者打开文件
 	queryHistroyFile, err = createOrOpenExcelFile(queryHistroyFilePath)
 	errorPanic(err)
-	// 步骤4：判断设备检测的是否对   - 原来的 report 环节
-	// 比较
-	// 生成报告
-	createReport()
 
 	logrus.Debug("report start 阶段, dronesDb.SigFolderPath = ", dronesDb.SigFolderPath)
 	logrus.Debug("report start 阶段, dronesDb = ", dronesDb)

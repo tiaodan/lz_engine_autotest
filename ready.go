@@ -641,10 +641,9 @@ func loopFile(path string) {
 
 }
 
-// 替换字符串 冒号:前面盘符 = F
+// 替换字符串 冒号:前面盘符 = 配置的driveLetter
 func replaceDiskLetter(str string) string {
-	// re := regexp.MustCompile(`[A-Za-z]:`)
-	re := regexp.MustCompile(`[E]:`) // 原来写法：re := regexp.MustCompile(`[A-Za-z]:`)
+	re := regexp.MustCompile(`[A-Za-z]:`) // 匹配任何盘符，替换成配置的driveLetter
 	return re.ReplaceAllString(str, driveLetter+":")
 }
 

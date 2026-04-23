@@ -31,3 +31,16 @@ AI 改前提交
 
 # v0.0.0.9
 优化文件结构
+
+# v0.0.0.10
+修复盘符替换bug：
+- 正则从 `[E]:` 改为 `[A-Za-z]:`
+- 之前只替换E盘，Excel里写D盘的路径不会被替换成配置的driveLetter
+- 现在任何盘符都会被替换成配置的driveLetter(E)
+修复config.ini格式：保留注释、大小写格式、行内注释
+
+
+# v0.0.0.11 
+修复两个bug：
+- 盘符替换：正则从 `[E]:` 改为 `[A-Za-z]:`，现在任何盘符都能替换成配置的driveLetter
+- report日志重复：删除report()函数中重复调用的createReport()
