@@ -5,6 +5,7 @@ package main
 
 import (
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -144,13 +145,13 @@ func createReportRelateSigReplayDronesDb() {
 	// 设置表为 活动窗口
 	reportFile.SetActiveSheet(sheetIndex)
 	// 设置列宽
-	reportFile.SetColWidth("分析报告-关联机型库(已回放信号)", "A", "P", 15)
-	// 写入表头
+	reportFile.SetColWidth("分析报告-关联机型库(已回放信号)", "A", "Q", 15)
+	// 写入表头（添加回放端口列）
 	tableHeaders := []Any{"ID", "厂家", "品牌", "型号", "协议(drones.csv)", "协议子类型(drones.csv)", "频段",
 		"详细频率", "信号文件夹名称(品牌-型号-频段-详细频率)", "信号文件夹路径",
 		"信号文件夹路径是否存在", "机型.txt内容", "id.txt内容", "信号文件夹路径重复数量",
 		"要查询的机型", "查询结果", "异常原因", "总用时(单位: 分钟)",
-		"seafile链接", "信号回放次数"}
+		"seafile链接", "信号回放次数", "回放端口"}
 	err = reportFile.SetSheetRow("分析报告-关联机型库(已回放信号)", "A1", &tableHeaders)
 	errorPanic(err)
 
@@ -217,7 +218,7 @@ func createReportRelateSigReplayDronesDb() {
 			dronesDb.SigFolderName[index], dronesDb.SigFolderPath[index], dronesDb.SigFolderPathExist[index],
 			dronesDb.DroneTxt[index], dronesDb.DroneIdTxt[index], dronesDb.SigFolderPathRepeatNum[index],
 			queryDroneMap[sigPath], queryResultMap[sigPath], errorReasonMap[sigPath], totalTimeMap[sigPath],
-			dronesDb.SeaFilePath[index], dronesDb.SigFolderReplayNum[index]}
+			dronesDb.SeaFilePath[index], dronesDb.SigFolderReplayNum[index], dronesDb.ReplayPort[index]}
 		err = reportFile.SetSheetRow("分析报告-关联机型库(已回放信号)", "A"+strconv.Itoa(index+2), &tableRow)
 		errorPanic(err)
 	}
@@ -329,6 +330,113 @@ func createReportRelateAllDronesDb() {
 	// 步骤4：保存文件
 	err = reportFile.SaveAs(reportFilePath)
 	errorPanic(err)
+
+	// 步骤5：创建失败信号Excel文件
+	createFailedSignalsExcel()
+}
+
+// 功能：创建失败信号的Excel文件，方便二次回放
+func createFailedSignalsExcel() {
+	logrus.Info("创建失败信号Excel文件")
+
+	// 打开报告文件
+	reportFile, err = createOrOpenExcelFile(reportFilePath)
+	errorPanic(err)
+
+	// 读取 "分析报告-关联机型库(已回放信号)" sheet
+	sheetName := "分析报告-关联机型库(已回放信号)"
+	rows, err := reportFile.GetRows(sheetName)
+	if err != nil {
+		logrus.Error("读取分析报告sheet失败: ", err)
+		return
+	}
+
+	// 创建失败信号Excel文件
+	failedFilePath := "失败信号-" + startTimeStr + ".xlsx"
+	failedFile, err := createOrOpenExcelFile(failedFilePath)
+	errorPanic(err)
+
+	// 创建sheet
+	failedSheetName := "机型库"
+	failedFile.SetSheetName("Sheet1", failedSheetName)
+
+	// 设置列宽
+	failedFile.SetColWidth(failedSheetName, "A", "Q", 20)
+
+	// 写入表头（与机型库完全一致）
+	// 机型库列：A-ID, B-厂商, C-品牌, D-型号, E-协议, F-子类型, G-频段, H-频率
+	// I-信号文件夹名称, J-信号文件夹路径, K-是否存在, L-机型.txt, M-id.txt, N-重复数量
+	// O-seafile链接, P-信号回放次数, Q-回放端口
+	tableHeaders := []Any{"ID", "厂商", "品牌", "型号", "协议", "协议子类型", "频段",
+		"频率", "信号文件夹名称", "信号文件夹路径",
+		"", "机型.txt内容", "id.txt内容", "",
+		"seafile链接", "信号回放次数", "回放端口"}
+	err = failedFile.SetSheetRow(failedSheetName, "A1", &tableHeaders)
+	errorPanic(err)
+
+	// 分析报告sheet列顺序：
+	// A-ID, B-厂家, C-品牌, D-型号, E-协议, F-子类型, G-频段, H-详细频率
+	// I-信号文件夹名称, J-信号文件夹路径, K-是否存在, L-机型.txt, M-id.txt, N-重复数量
+	// O-查询机型, P-查询结果, Q-异常原因, R-总用时, S-seafile链接, T-信号回放次数
+	// 需要映射到机型库列顺序
+	failedCount := 0
+	for index, row := range rows {
+		if index == 0 {
+			continue // 跳过表头
+		}
+
+		// P列是查询结果（索引15）
+		queryResult := ""
+		if len(row) > 15 {
+			queryResult = row[15]
+		}
+
+		// 判断失败：查询结果不是"true"（不区分大小写）
+		if strings.ToLower(queryResult) != "true" {
+			failedCount++
+			// 按机型库列顺序写入（保留原始ID）
+			// 从分析报告sheet提取数据并映射
+			// 分析报告sheet列索引: 0-ID, 1-厂商, 2-品牌, 3-型号, 4-协议, 5-子类型, 6-频段, 7-频率
+			// 8-信号文件夹名称, 9-信号文件夹路径, 10-是否存在, 11-机型.txt, 12-id.txt, 13-重复数量
+			// 14-查询机型, 15-查询结果, 16-异常原因, 17-总用时, 18-seafile, 19-回放次数, 20-回放端口
+			tableRow := []Any{
+				getRowValue(row, 0),  // A-ID
+				getRowValue(row, 1),  // B-厂商
+				getRowValue(row, 2),  // C-品牌
+				getRowValue(row, 3),  // D-型号
+				getRowValue(row, 4),  // E-协议
+				getRowValue(row, 5),  // F-子类型
+				getRowValue(row, 6),  // G-频段
+				getRowValue(row, 7),  // H-频率
+				getRowValue(row, 8),  // I-信号文件夹名称
+				getRowValue(row, 9),  // J-信号文件夹路径
+				"",                   // K-空列
+				getRowValue(row, 11), // L-机型.txt内容
+				getRowValue(row, 12), // M-id.txt内容
+				"",                   // N-空列
+				getRowValue(row, 18), // O-seafile链接
+				getRowValue(row, 19), // P-信号回放次数
+				getRowValue(row, 20), // Q-回放端口
+			}
+			err = failedFile.SetSheetRow(failedSheetName, "A"+strconv.Itoa(failedCount+1), &tableRow)
+			errorPanic(err)
+		}
+	}
+
+	logrus.Infof("失败信号数量: %d", failedCount)
+
+	// 保存文件
+	err = failedFile.SaveAs(failedFilePath)
+	errorPanic(err)
+	logrus.Info("失败信号Excel文件已创建: ", failedFilePath)
+}
+
+// 辅助函数：安全获取row中的值
+func getRowValue(row []string, index int) string {
+	if index < len(row) {
+		return row[index]
+	}
+	return ""
 }
 
 // 处理查询结果的算法 - 写到 报告的表里
